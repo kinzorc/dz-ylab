@@ -1,5 +1,8 @@
 package ru.kinzorc.habittracker.common.util;
 
-public enum Parametr {
-    
+public enum DataOfUser {
+
+    NAME,
+    EMAIL,
+    PASSWORD,
 }

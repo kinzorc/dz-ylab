@@ -1,4 +1,10 @@
-package ru.kinzorc.habittracker.model;
+package ru.kinzorc.habittracker.core.model;
+
+import ru.kinzorc.habittracker.habit.model.Habit;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Objects;
 
 public class User {
     private String name;
@@ -7,6 +13,7 @@ public class User {
     private boolean isAdmin;
     private boolean isLogin;
     private boolean isBlocked;
+    private HashMap<Habit, ArrayList<String>> habits;
 
     public User(String name, String email, String password, boolean isAdmin, boolean isLogin, boolean isBlocked) {
         this.name = name;
@@ -15,6 +22,7 @@ public class User {
         this.isAdmin = isAdmin;
         this.isLogin = isLogin;
         this.isBlocked = isBlocked;
+        this.habits = new HashMap<>();
     }
 
     public String getName() {
@@ -47,5 +55,26 @@ public class User {
 
     public void setLogin(boolean login) {
         isLogin = login;
+    }
+
+    public HashMap<Habit, ArrayList<String>> getHabits() {
+        return this.habits;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, email, password);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || obj.getClass() != this.getClass()) return false;
+
+        User user = (User) obj;
+
+        return Objects.equals(name, user.name)
+                && Objects.equals(email, user.email)
+                && Objects.equals(password, user.password);
     }
 }

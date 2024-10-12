@@ -1,4 +1,4 @@
-package ru.kinzorc.habittracker.core.handlerUser;
+package ru.kinzorc.habittracker.core.userhandler;
 
 import ru.kinzorc.habittracker.common.util.DataOfUser;
 import ru.kinzorc.habittracker.common.util.EmailSender;

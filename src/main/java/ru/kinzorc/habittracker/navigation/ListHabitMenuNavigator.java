@@ -1,34 +1,27 @@
 package ru.kinzorc.habittracker.navigation;
 
-import ru.kinzorc.habittracker.common.util.FrequencyHabit;
 import ru.kinzorc.habittracker.common.util.InputUtils;
 import ru.kinzorc.habittracker.habit.habithandler.HabitHadler;
-import ru.kinzorc.habittracker.habit.model.Habit;
 
-public class ProfileHabitMenuNavigator {
-    private ProfileHabitMenuNavigator() {}
+
+public class ListHabitMenuNavigator {
+    private ListHabitMenuNavigator() {}
 
     public static void ProfileHabitsMenu() {
         boolean running = true;
         while (running) {
+            System.out.println("\nСписок привычек:");
             HabitHadler.listHabits();
-            System.out.println("\nСписок привычек:\n1) Выбрать привычку 2) Отметка о выполенении 3) Удалить привычку 4) Выход");
+            System.out.println("\n1) Статистика выполнения 2) Отметка о выполенении 3) Изменить привычку 4) Удалить привычку 5) Выйти в меню привычек");
             int option = InputUtils.promptMenuValidInput();
 
             switch (option) {
-                case 1 -> {
-                    String habitName = InputUtils.promptInput("Введите название новой привычки: ");
-                    String habitDescription = InputUtils.promptInput("Введите описание привычки: ");
-                    String habitFrequency = InputUtils.promptFrequencyValid("Частота выполнения (введите day или week): ", "Неверная частота, попробуйте еще раз.");
-                    HabitHadler.addHabit(new Habit(habitName, habitDescription, FrequencyHabit.valueOf(habitFrequency)));
-                }
-                case 2 -> {
-                    String habitName = InputUtils.promptInput("Введите название привычки для удаления: ");
-                    HabitHadler.removeHabit(habitName);
-                }
-                case 3 -> ;
-                case 4 -> {
-                    System.out.println("Возврат в личный кабинет");
+                case 1 -> HabitHadler.statisticsHabit();
+                case 2 -> HabitHadler.markDoneHabit();
+                case 3 -> HabitHadler.editHabit();
+                case 4 -> HabitHadler.removeHabit();
+                case 5 -> {
+                    System.out.println("Возврат в меню привычек");
                     running = false; // Завершение цикла
                 }
                 default -> System.out.println("Пожалуйста, выберите один из предложенных вариантов.");
