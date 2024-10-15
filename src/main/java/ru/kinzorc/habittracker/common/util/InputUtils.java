@@ -16,14 +16,14 @@ public class InputUtils {
     }
 
     // Проверка имени
-    private static boolean isValidUsername(String name) {
+    static boolean isValidUsername(String name) {
         // Имя должно содержать от 3 до 20 символов и начинаться с буквы
         String usernameRegex = "^[a-zA-Zа-яА-Я0-9][a-zA-Zа-яА-Я0-9-]{2,19}$";
         return name != null && name.matches(usernameRegex);
     }
 
     // Проверка адреса почты
-    private static boolean isValidEmail(String email) {
+    static boolean isValidEmail(String email) {
         String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
         return email != null && email.matches(emailRegex);
     }
@@ -35,7 +35,7 @@ public class InputUtils {
     // - хотя бы одну строчную букву
     // - хотя бы одну заглавную букву
     // - хотя бы один специальный символ
-    private static boolean isValidPassword(String password) {
+    static boolean isValidPassword(String password) {
         String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*]).{8,}$";
         return password != null && password.matches(passwordRegex);
     }
