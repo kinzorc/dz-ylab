@@ -1,6 +1,7 @@
 package ru.kinzorc.habittracker.core.handler;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import ru.kinzorc.habittracker.common.config.HandlerConstants;
@@ -16,6 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+@DisplayName("Тесты класса HabitHandler")
 class HabitHandlerTest {
 
     private User user;
@@ -29,6 +31,7 @@ class HabitHandlerTest {
     }
 
     @Test
+    @DisplayName("Тест на создание привычки")
     void testAddHabitForUser() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             // Мокируем ввод данных
@@ -53,6 +56,7 @@ class HabitHandlerTest {
     }
 
     @Test
+    @DisplayName("Тест на удаления привычки")
     void testRemoveHabitForUser() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             // Мокируем ввод названия привычки
@@ -72,6 +76,7 @@ class HabitHandlerTest {
     }
 
     @Test
+    @DisplayName("Тест на изменение информации о привычке")
     void testEditHabitForUser() {
         Habit mockHabit = new Habit("Morning Run", "Run every morning", FrequencyHabit.DAY, LocalDate.now());
 
@@ -92,7 +97,9 @@ class HabitHandlerTest {
         }
     }
 
+
     @Test
+    @DisplayName("Тесты об отметке выполнения найденой привычки")
     void testUserMarkDoneHabitHabitFound() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             Habit mockHabit = new Habit("Morning Run", "Run every morning", FrequencyHabit.DAY, LocalDate.now().minusDays(5));
@@ -118,6 +125,7 @@ class HabitHandlerTest {
     }
 
     @Test
+    @DisplayName("Тест на отметку выполнения не найденой привычки")
     void testUserMarkDoneHabitHabitNotFound() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             // Мокируем ввод названия привычки

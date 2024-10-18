@@ -24,9 +24,10 @@ public class HabitHandler {
         String habitName = InputUtils.promptInput("Введите название новой привычки: ");
         String habitDescription = InputUtils.promptInput("Введите описание привычки: ");
         String habitFrequency = InputUtils.promptFrequencyValid("Частота выполнения (day/week): ", "Неверное значение, попробуйте еще раз.");
-        LocalDate startDate = null;
+        LocalDate startDate = InputUtils.promptDateValid("Дата начала выполнения (формат - dd.mm.yyyy): ", "Неверно указана дата");
 
-        while (startDate == null || startDate.isBefore(LocalDate.now())) {
+        while (startDate != null && startDate.isBefore(LocalDate.now())) {
+            System.out.println("Дата начала выполнения привычки не может быть меньше текущей даты, введите корректную дату!");
             startDate = InputUtils.promptDateValid("Дата начала выполнения (формат - dd.mm.yyyy): ", "Неверно указана дата");
         }
 
@@ -112,10 +113,7 @@ public class HabitHandler {
                 HandlerConstants.HABIT_SERVICE.clearCompletionHistory(editHabit);
                 System.out.println("История выполнения пивычки очищена");
             }
-            case 7 -> {
-                System.out.println("Выход в меню привычек");
-                return;
-            }
+            case 7 -> System.out.println("Выход в меню привычек");
         }
     }
 
