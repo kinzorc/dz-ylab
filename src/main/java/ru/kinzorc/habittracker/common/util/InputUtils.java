@@ -93,14 +93,13 @@ public class InputUtils {
         while (true) {
             System.out.print(message);
             String data = scanner.nextLine();
-            data = data.toLowerCase();
             switch (data) {
                 case "day" -> {
-                    if ("day".equalsIgnoreCase(FrequencyHabit.DAY.toString()))
+                    if (data.equalsIgnoreCase(FrequencyHabit.DAY.toString()))
                         return "DAY";
                 }
                 case "week" -> {
-                    if ("week".equalsIgnoreCase(FrequencyHabit.WEEK.toString()))
+                    if (data.equalsIgnoreCase(FrequencyHabit.WEEK.toString()))
                         return "WEEK";
                 }
                 case "0" -> {
@@ -118,14 +117,13 @@ public class InputUtils {
         while (true) {
             System.out.print(message);
             String data = scanner.nextLine();
-            data = data.toUpperCase();
             switch (data) {
-                case "ACTIVE" -> {
-                    if ("ACTIVE".equalsIgnoreCase(HabitStatus.ACTIVE.toString()))
+                case "active" -> {
+                    if (data.equalsIgnoreCase(HabitStatus.ACTIVE.toString()))
                         return data;
                 }
-                case "FINISHED" -> {
-                    if ("week".equalsIgnoreCase(HabitStatus.FINISHED.toString()))
+                case "finished" -> {
+                    if (data.equalsIgnoreCase(HabitStatus.FINISHED.toString()))
                         return data;
                 }
                 case "0" -> {

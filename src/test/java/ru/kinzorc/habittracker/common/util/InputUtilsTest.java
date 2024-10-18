@@ -1,5 +1,6 @@
 package ru.kinzorc.habittracker.common.util;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import ru.kinzorc.habittracker.common.data.DataOfUser;
@@ -10,9 +11,11 @@ import java.time.format.DateTimeFormatter;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@DisplayName("Тесты на корректность вводимых данных от пользователя")
 class InputUtilsTest {
 
     @Test
+    @DisplayName("Проверка имени")
     void testIsValidUsername() {
         // Пример некорректных имен, которые должны вернуть false
         assertFalse(InputUtils.isValidUsername(""));  // Пустая строка
@@ -26,6 +29,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка email")
     void testIsValidEmail() {
         // Проверка валидных email
         assertTrue(InputUtils.isValidEmail("test@example.com"));
@@ -38,6 +42,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка пароля")
     void testIsValidPassword() {
         // Проверка валидных паролей
         assertTrue(InputUtils.isValidPassword("Aa1!abcd"));
@@ -50,6 +55,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка общего метода для вводимых данных")
     void testPromptValidInputUserData() {
         try (MockedStatic<InputUtils> mockedInputUtils = mockStatic(InputUtils.class)) {
             // Используем матчеры для всех аргументов метода
@@ -63,6 +69,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка ввода частоты выполнения привычки")
     void testPromptFrequencyValid() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             mockedInputUtils.when(() -> InputUtils.promptFrequencyValid("Enter frequency: ", "Invalid frequency"))
@@ -74,6 +81,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка даты - формат: \"dd.MM.yyyy\"")
     void testPromptDateValid() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -88,6 +96,7 @@ class InputUtilsTest {
     }
 
     @Test
+    @DisplayName("Проверка ввода статуса выполнения привычки")
     void testPromptStatusValid() {
         try (var mockedInputUtils = mockStatic(InputUtils.class)) {
             mockedInputUtils.when(() -> InputUtils.promptStatusValid("Enter status: ", "Invalid status"))
