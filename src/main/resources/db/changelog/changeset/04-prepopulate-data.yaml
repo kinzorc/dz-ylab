@@ -1,0 +1,79 @@
+databaseChangeLog:
+  - changeSet:
+      id: prepopulate-user-role
+      author: kinzorc
+      changes:
+        - insert:
+            tableName: user_role
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: role_name
+                  value: "admin"
+        - insert:
+            tableName: user_role
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: role_name
+                  value: "user"
+  - changeSet:
+      id: prepopulate-user-status-account
+      author: kinzorc
+      changes:
+        - insert:
+            tableName: user_status_account
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: status_account
+                  value: "active"
+        - insert:
+            tableName: user_status_account
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: status_account
+                  value: "blocked"
+  - changeSet:
+      id: prepopulate-users
+      author: kinzorc
+      changes:
+        - insert:
+            tableName: users
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: username
+                  value: "admin"
+              - column:
+                  name: password
+                  value: "admin"
+              - column:
+                  name: email
+                  value: "admin@admin.com"
+              - column:
+                  name: role_name
+                  value: "admin"
+              - column:
+                  name: status_account
+                  value: "active"
+        - insert:
+            tableName: users
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: username
+                  value: "test"
+              - column:
+                  name: password
+                  value: "test"
+              - column:
+                  name: email
+                  value: "test@test.com"
+              - column:
+                  name: role_name
+                  value: "user"
+              - column:
+                  name: status_account
+                  value: "active"

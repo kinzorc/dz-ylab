@@ -4,8 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.MockitoAnnotations;
+import ru.kinzorc.habittracker.application.service.UserService;
 import ru.kinzorc.habittracker.common.config.HandlerConstants;
-import ru.kinzorc.habittracker.core.model.User;
+import ru.kinzorc.habittracker.core.entities.User;
 
 import static org.junit.jupiter.api.Assertions.*;
 

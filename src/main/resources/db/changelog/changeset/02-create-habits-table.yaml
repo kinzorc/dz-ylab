@@ -1,0 +1,174 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-habits
+      author: kinzorc
+      changes:
+        - createTable:
+            tableName: habits
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: habit_name
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: varchar(300)
+              - column:
+                  name: frequency
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_date
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(25)
+                  constraints:
+                    nullable: false
+  - changeSet:
+      id: add-foreign-key-habits
+      author: kinzorc
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: habits
+            baseColumnNames: user_id
+            constraintName: fk_user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            baseTableSchemaName: app_schema
+            referencedTableSchemaName: app_schema
+  - changeSet:
+      id: create-habit_statistics
+      author: kinzorc
+      changes:
+        - createTable:
+            tableName: habit_statistics
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: habit_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: start_date
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: end_date
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: execution_period
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: add-foreign-key-habit-statistics
+      author: kinzorc
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: habit_statistics
+            baseColumnNames: habit_id
+            constraintName: fk_habit_id
+            referencedTableName: habits
+            referencedColumnNames: id
+            baseTableSchemaName: app_schema
+            referencedTableSchemaName: app_schema
+
+  - changeSet:
+      id: create-habit-streaks
+      author: kinzorc
+      changes:
+        - createTable:
+            tableName: habit_streaks
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: habit_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: count
+                  type: integer
+                  constraints:
+                    nullable: false
+                    checkConstraint: "count >= 0"
+              - column:
+                  name: date_execution
+                  type: timestamp
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: add-foreign-key-habit-streaks
+      author: kinzorc
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: habit_streaks
+            baseColumnNames: habit_id
+            constraintName: fk_habit_streaks_id
+            referencedTableName: habits
+            referencedColumnNames: id
+            baseTableSchemaName: app_schema
+            referencedTableSchemaName: app_schema
+
+  - changeSet:
+      id: create-habit-executions
+      author: kinzorc
+      changes:
+        - createTable:
+            tableName: habit_executions
+            schemaName: app_schema
+            columns:
+              - column:
+                  name: habit_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: date
+                  type: timestamp
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: add-foreign-key-habit-executions
+      author: kinzorc
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: habit_executions
+            baseColumnNames: habit_id
+            constraintName: fk_habit_executions_id
+            referencedTableName: habits
+            referencedColumnNames: id
+            baseTableSchemaName: app_schema
+            referencedTableSchemaName: app_schema

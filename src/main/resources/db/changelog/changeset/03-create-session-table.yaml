@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-users_sessions
+      author: kinzorc
+      changes:
+        - createTable:
+            tableName: users_sessions
+            schemaName: service_schema
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_user_id
+                    referencedTableName: users
+                    referencedTableSchemaName: app_schema
+                    referencedColumnNames: id
+              - column:
+                  name: login_time
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - changeSet:
+            id: add-foreign-key-users
+            author: kinzorc
+            changes:
+              - addForeignKeyConstraint:
+                  baseTableName: users_sessions
+                  baseColumnNames: user_id
+                  constraintName: fk_users_id
+                  referencedTableName: users
+                  referencedColumnNames: id
+                  baseTableSchemaName: service_schema
+                  referencedTableSchemaName: app_schema
