@@ -23,15 +23,15 @@ public class UserProfileMenu implements Menu {
             int option = menuUtils.promptMenuValidInput(scanner);
 
             switch (option) {
-                case 1 -> applicationService.editUser(UserData.USERNAME,
+                case 1 -> applicationService.editUser(applicationService.getCurrentUser(), UserData.USERNAME,
                         menuUtils.promptValidInputUserData(scanner, UserData.USERNAME,
                                 "Введите новое имя: ",
                                 "Имя должно содержать от 3 до 20 символов и начинаться с буквы"));
-                case 2 -> applicationService.editUser(UserData.EMAIL,
+                case 2 -> applicationService.editUser(applicationService.getCurrentUser(), UserData.EMAIL,
                         menuUtils.promptValidInputUserData(scanner, UserData.EMAIL,
                                 "Введите новый email: ",
                                 "Некорректный email"));
-                case 3 -> applicationService.editUser(UserData.PASSWORD,
+                case 3 -> applicationService.editUser(applicationService.getCurrentUser(), UserData.PASSWORD,
                         menuUtils.promptValidInputUserData(scanner, UserData.PASSWORD, "Введите пароль: ", """
                                 Пароль должен содержать:
                                 - минимум 8 символов

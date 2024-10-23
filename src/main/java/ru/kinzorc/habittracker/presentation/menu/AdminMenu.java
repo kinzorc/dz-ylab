@@ -2,10 +2,7 @@ package ru.kinzorc.habittracker.presentation.menu;
 
 import ru.kinzorc.habittracker.application.dto.UserDTO;
 import ru.kinzorc.habittracker.application.service.ApplicationService;
-import ru.kinzorc.habittracker.core.entities.User;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
-import ru.kinzorc.habittracker.core.repository.HabitHandler;
-import ru.kinzorc.habittracker.core.repository.UserHandler;
 import ru.kinzorc.habittracker.presentation.utils.MenuUtils;
 import ru.kinzorc.habittracker.presentation.utils.PrintUtils;
 
@@ -23,7 +20,7 @@ public class AdminMenu implements Menu {
             System.out.println("""
 
                     Администрирование:
-                    1) Список пользователей 2) Список привычек пользователя 3) Заблокировать пользователя 4) Удалить пользователя 5) Выход в личный кабинет""");
+                    1) Список пользователей 2) Список привычек пользователей 3) Заблокировать пользователя 4) Удалить пользователя 5) Выход в личный кабинет""");
 
             int option = menuUtils.promptMenuValidInput(scanner);
 
@@ -40,13 +37,8 @@ public class AdminMenu implements Menu {
                     menuUtils.promptInput(scanner, "Введите enter для выхода...");
                 }
                 case 2 -> {
-                    User user = UserHandler.getFindUser();
-                    if (user != null) {
-                        HabitHandler.printUserListHabits(user);
-                        MenuUtils.promptInput("Введите enter для выхода...");
-                    } else {
-                        System.out.println("Пользователь не найден!");
-                    }
+                    System.out.println("Список привычек пользователей:\n");
+                    PrintUtils.printListHabits(applicationService.getAllHabits());
                 }
                 case 3 -> {
                     String value = menuUtils.promptInput(scanner, "Введите id пользователя: ");

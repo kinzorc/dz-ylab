@@ -99,7 +99,7 @@ public class JdbcHabitRepository implements HabitRepository {
     }
 
     @Override
-    public void markExecution(long id, LocalDateTime executionDate) throws HabitNotFoundException, SQLException {
+    public void markExecution(long id, LocalDateTime executionDate) throws SQLException {
         String sql = "INSERT INTO app_schema.habit_executions (habit_id, date) VALUES (?, ?)";
 
         try (Connection connection = jdbcConnector.getConnection();

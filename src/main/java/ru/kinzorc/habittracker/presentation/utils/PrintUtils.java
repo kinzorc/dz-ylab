@@ -23,12 +23,11 @@ public class PrintUtils {
     public static void printListHabits(List<Habit> habits) {
         AtomicInteger number = new AtomicInteger(1);
         System.out.println("\nСписок привычек:\n");
-        System.out.printf("%-3s %-20s %-50s %-10S %-12s %-12s %-5S%n", "№", "Название", "Описание", "Статус", "Дата создания", "Дата начала", "Периодичность");
+        System.out.printf("%-3s %-10s %-20s %-50s %-10S %-12s %-12s %-5S%n", "№", "ID", "Название", "Описание", "Статус", "Дата создания", "Дата начала", "Периодичность");
         System.out.println("----------------------------------------------------------------------------------------------------------------------------------");
-        /*habits.values().forEach(habit -> System.out.printf("%-3s %-20s %-50s %-10S %-12s %-12s %-5S%n",
-                number.getAndIncrement(), habit.getName(), habit.getDescription(), habit.getStatus(), habit.getCreatedDate(), habit.getStartDate(), habit.getFrequency().name()));
+        habits.forEach(habit -> System.out.printf("%-3s %-10s %-20s %-50s %-10S %-12s %-12s %-5S%n",
+                number.getAndIncrement(), habit.getId(), habit.getName(), habit.getDescription(), habit.getStatus(), habit.getCreatedDate(), habit.getStartDate(), habit.getFrequency().name()));
 
-         */
     }
 
     public static void printInfoForHabit(Habit habit, HabitStatistic habitStatistic) {

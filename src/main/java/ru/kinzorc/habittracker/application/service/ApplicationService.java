@@ -85,14 +85,14 @@ public class ApplicationService {
     }
 
     // Изменение данных пользователя (имя, email, пароль)
-    public void editUser(UserData userData, String newValue) {
+    public void editUser(User user, UserData userData, String newValue) {
         if (currentUser == null) {
             System.err.println("Вы не авторизованы!");
             return;
         }
 
         try {
-            userRepository.editUser(currentUser, userData, newValue);
+            userRepository.editUser(user, userData, newValue);
             System.out.println("Данные пользователя успешно обновлены.");
         } catch (SQLException e) {
             System.err.println("Ошибка обновления данных пользователя.");
@@ -162,15 +162,9 @@ public class ApplicationService {
             Optional<UserDTO> userDTO = userRepository.findUser(userData, value);
 
             switch (userData) {
-                case ID -> {
-                    result = userDTO.map(dto -> dto.getId() == Long.parseLong(value)).orElse(false);
-                }
-                case USERNAME -> {
-                    result = userDTO.map(dto -> dto.getUserName().equals(value)).orElse(false);
-                }
-                case EMAIL -> {
-                    result = userDTO.map(dto -> dto.getEmail().equals(value)).orElse(false);
-                }
+                case ID -> result = userDTO.map(dto -> dto.getId() == Long.parseLong(value)).orElse(false);
+                case USERNAME -> result = userDTO.map(dto -> dto.getUserName().equals(value)).orElse(false);
+                case EMAIL -> result = userDTO.map(dto -> dto.getEmail().equals(value)).orElse(false);
                 default -> System.err.println("Указан неправильный параметр пользователя!");
             }
         } catch (UserNotFoundException e) {
