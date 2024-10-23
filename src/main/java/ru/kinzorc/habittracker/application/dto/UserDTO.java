@@ -96,7 +96,7 @@ public class UserDTO {
 
     // Метод для преобразования полей DTO в массив для SQL запроса
     public Object[] toSqlParams() {
-        return new Object[]{id, username, password, email, userRole.toString().toLowerCase(), userStatusAccount.toString().toUpperCase()};
+        return new Object[]{username, password, email, userRole.toString().toLowerCase(), userStatusAccount.toString().toLowerCase()};
     }
 
     public User toUser() {

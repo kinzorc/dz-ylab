@@ -188,7 +188,7 @@ public class JdbcUserRepository implements UserRepository {
 
     @Override
     public void addSession(long userId) throws SQLException {
-        String sql = "INSERT INTO service_schema.users_sessions (username_id, login_time) VALUES (?, ?)";
+        String sql = "INSERT INTO service_schema.users_sessions (user_id, login_time) VALUES (?, ?)";
 
         try (PreparedStatement statement = jdbcConnector.getConnection().prepareStatement(sql)) {
             statement.setLong(1, userId);

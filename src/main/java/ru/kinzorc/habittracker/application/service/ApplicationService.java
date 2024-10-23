@@ -38,10 +38,11 @@ public class ApplicationService {
             try {
                 User user = new User(name, password, email, UserRole.USER);
                 userRepository.addUser(user);
+                System.out.println("Вы успешно зарегистрировались!");
             } catch (UserAlreadyExistsException e) {
                 System.out.println("Пользователь с таким email уже зарегистрирован!");
             } catch (SQLException e) {
-                System.err.println("Ошибка добавления пользователя в базу!");
+                System.err.println("Ошибка добавления пользователя в базу!" + e.getMessage());
             }
         } else {
             System.err.println("Некорректные или пустые данные: имя, пароль, email.");
@@ -64,7 +65,7 @@ public class ApplicationService {
             System.err.println("Неудачная попытка входа. Попробуйте еще раз.");
             return false;
         } catch (SQLException e) {
-            System.err.println("Ошибка в запросе к базе данных");
+            System.err.println("Ошибка в запросе к базе данных" + e.getMessage());
             return false;
         } catch (UserNotFoundException e) {
             System.err.println("Пользователь не найден!");
@@ -93,6 +94,14 @@ public class ApplicationService {
 
         try {
             userRepository.editUser(user, userData, newValue);
+
+            if (userData == UserData.USERNAME)
+                currentUser.setUserName(newValue);
+            else if (userData == UserData.EMAIL)
+                currentUser.setEmail(newValue);
+            else if (userData == UserData.PASSWORD)
+                currentUser.setPassword(newValue);
+
             System.out.println("Данные пользователя успешно обновлены.");
         } catch (SQLException e) {
             System.err.println("Ошибка обновления данных пользователя.");
