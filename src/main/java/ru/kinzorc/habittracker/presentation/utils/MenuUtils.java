@@ -1,22 +1,17 @@
 package ru.kinzorc.habittracker.presentation.utils;
 
-import ru.kinzorc.habittracker.core.entities.Habit;
+import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class MenuUtils {
-
-
-
 
     // Проверка имени
     public boolean isValidUsername(String name) {
@@ -140,9 +135,33 @@ public class MenuUtils {
         }
     }
 
-    public LocalDate promptDateValid(Scanner scanner, String message, String errorMessage) {
+    public String promptHabitExecutionPeriodValid(Scanner scanner, String message, String errorMessage) {
+        while (true) {
+            System.out.print(message);
+            String data = scanner.nextLine();
+            switch (data) {
+                case "month" -> {
+                    if (data.equalsIgnoreCase(HabitExecutionPeriod.MONTH.toString()))
+                        return data;
+                }
+                case "year" -> {
+                    if (data.equalsIgnoreCase(HabitExecutionPeriod.YEAR.toString()))
+                        return data;
+                }
+                case "0" -> {
+                    return "0";
+                }
+                default -> {
+                    System.out.println(errorMessage);
+                    return null;
+                }
+            }
+        }
+    }
+
+    public LocalDateTime promptDateValid(Scanner scanner, String message, String errorMessage) {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        LocalDate date;
+        LocalDateTime date;
 
         while (true) {
             System.out.print(message);
@@ -153,7 +172,7 @@ public class MenuUtils {
 
             // Парсим строку в дату
             try {
-                date = LocalDate.parse(data, dateFormatter);
+                date = LocalDateTime.parse(data, dateFormatter);
                 break;
             } catch (Exception e) {
                 System.out.println(errorMessage);
@@ -168,15 +187,4 @@ public class MenuUtils {
         return String.valueOf(100000 + random.nextInt(900000));
     }
 
-
-    public void printListHabits(List<Habit> habits) {
-        AtomicInteger number = new AtomicInteger(1);
-        System.out.println("\nСписок привычек:\n");
-        System.out.printf("%-3s %-20s %-50s %-10S %-12s %-12s %-5S%n", "№", "Название", "Описание", "Статус", "Дата создания", "Дата начала", "Периодичность");
-        System.out.println("----------------------------------------------------------------------------------------------------------------------------------");
-        /*habits.values().forEach(habit -> System.out.printf("%-3s %-20s %-50s %-10S %-12s %-12s %-5S%n",
-                number.getAndIncrement(), habit.getName(), habit.getDescription(), habit.getStatus(), habit.getCreatedDate(), habit.getStartDate(), habit.getFrequency().name()));
-
-         */
-    }
 }

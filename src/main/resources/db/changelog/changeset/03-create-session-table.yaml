@@ -19,24 +19,17 @@ databaseChangeLog:
                   type: bigint
                   constraints:
                     nullable: false
-                    foreignKeyName: fk_user_id
-                    referencedTableName: users
-                    referencedTableSchemaName: app_schema
-                    referencedColumnNames: id
               - column:
                   name: login_time
-                  type: TIMESTAMP
+                  type: timestamp
                   constraints:
                     nullable: false
-        - changeSet:
-            id: add-foreign-key-users
-            author: kinzorc
-            changes:
-              - addForeignKeyConstraint:
-                  baseTableName: users_sessions
-                  baseColumnNames: user_id
-                  constraintName: fk_users_id
-                  referencedTableName: users
-                  referencedColumnNames: id
-                  baseTableSchemaName: service_schema
-                  referencedTableSchemaName: app_schema
+
+        - addForeignKeyConstraint:
+            baseTableName: users_sessions
+            baseColumnNames: user_id
+            baseTableSchemaName: service_schema
+            constraintName: fk_user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            referencedTableSchemaName: app_schema

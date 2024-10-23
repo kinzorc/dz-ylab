@@ -10,10 +10,10 @@ import java.util.Objects;
 /**
  * Класс представляет привычку пользователя в системе.
  * <p>
- * Привычка имеет уникальный идентификатор (UUID), имя, описание, частоту выполнения,
- * статус активности, а также включает статистику выполнения (через {@link HabitStatistic}),
- * которая хранит даты создания, начала и окончания привычки.
- * Привычка также может иметь активный или неактивный статус, который указывает на текущее состояние привычки.
+ * Привычка включает уникальный идентификатор, имя, описание, частоту выполнения и статус активности.
+ * Также содержит объект статистики {@link HabitStatistic}, который хранит информацию о выполнении привычки.
+ * Привычка может иметь различные периоды выполнения (например, месяц или год) и поддерживает
+ * отслеживание даты начала и окончания выполнения.
  * </p>
  */
 public class Habit {
@@ -21,53 +21,66 @@ public class Habit {
     /**
      * Объект статистики привычки.
      * <p>
-     * Включает информацию о периодах выполнения привычки, дате начала и окончания.
+     * Содержит данные о стриках, процентах выполнения и датах выполнений привычки.
      * </p>
      */
     private final HabitStatistic habitStatistic;
     /**
      * Дата создания привычки.
      * <p>
-     * Определяется автоматически при создании объекта привычки и не может быть изменена.
+     * Определяется автоматически при создании привычки и не может быть изменена.
      * </p>
      */
     private final LocalDateTime createdDate;
-    /**
-     * Идентификатор привычки (id).
-     */
-    private long id;
+
     /**
      * Имя привычки.
      */
     private String name;
+
     /**
      * Описание привычки.
      */
     private String description;
     /**
+     * Уникальный идентификатор привычки (ID).
+     */
+    private long id;
+    /**
      * Частота выполнения привычки.
      * <p>
-     * Определяется значениями перечисления {@link HabitFrequency}, которые указывают,
-     * как часто должна выполняться привычка (ежедневно, еженедельно и т.д.).
+     * Определяется значениями перечисления {@link HabitFrequency}, которое указывает, как часто должна выполняться привычка.
      * </p>
      */
     private HabitFrequency frequency;
     /**
      * Статус привычки.
      * <p>
-     * Определяется значениями перечисления {@link HabitStatus}, которое указывает на текущий статус привычки
-     * (например, активна или нет).
+     * Указывает, активна привычка или нет. Определяется значениями перечисления {@link HabitStatus}.
      * </p>
      */
     private HabitStatus status;
 
     /**
+     * Период выполнения привычки (например, месяц или год).
+     */
+    private HabitExecutionPeriod executionPeriod;
+
+    /**
+     * Дата начала выполнения привычки.
+     */
+    private LocalDateTime startDate;
+
+    /**
+     * Дата окончания выполнения привычки.
+     */
+    private LocalDateTime endDate;
+
+    /**
      * Конструктор для создания новой привычки.
      * <p>
-     * При создании новой привычки автоматически генерируется уникальный идентификатор (UUID),
-     * устанавливаются начальные значения для имени, описания, частоты и других атрибутов привычки.
-     * Также создается объект статистики {@link HabitStatistic}, который рассчитывает дату окончания привычки
-     * на основе даты начала и периода выполнения.
+     * При создании новой привычки автоматически задаются идентификатор, статус, дата создания и создается объект статистики {@link HabitStatistic}.
+     * Дата окончания выполнения рассчитывается на основе периода выполнения и даты начала.
      * </p>
      *
      * @param name            имя привычки
@@ -82,11 +95,13 @@ public class Habit {
         this.frequency = frequency;
         this.createdDate = LocalDateTime.now();
         this.status = HabitStatus.ACTIVE;
-        this.habitStatistic = new HabitStatistic(startDate, executionPeriod);
+        this.habitStatistic = new HabitStatistic();
+
+        calculateEndDate(startDate, executionPeriod);
     }
 
     /**
-     * Возвращает идентификатор привычки (id).
+     * Возвращает идентификатор привычки (ID).
      *
      * @return уникальный идентификатор привычки
      */
@@ -95,7 +110,7 @@ public class Habit {
     }
 
     /**
-     * Устанавливает идентификатор привычки (id).
+     * Устанавливает идентификатор привычки (ID).
      *
      * @param id новый идентификатор привычки
      */
@@ -176,18 +191,87 @@ public class Habit {
     }
 
     /**
-     * Возвращает объект статистики по привычке (выполнения привычки, стрики, процент выполнения и т.д.).
+     * Возвращает объект статистики привычки.
      *
-     * @return объект статистики по привычке
+     * @return объект статистики привычки {@link HabitStatistic}
      */
     public HabitStatistic getHabitStatistic() {
-        return this.habitStatistic;
+        return habitStatistic;
     }
 
     /**
-     * Переопределение метода {@code hashCode()} для генерации хеш-кода на основе уникального идентификатора привычки.
+     * Возвращает дату создания привычки.
      *
-     * @return хеш-код для объекта привычки
+     * @return дата создания привычки
+     */
+    public LocalDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    /**
+     * Возвращает дату начала выполнения привычки.
+     *
+     * @return дата начала выполнения привычки
+     */
+    public LocalDateTime getStartDate() {
+        return startDate;
+    }
+
+    /**
+     * Устанавливает новую дату начала выполнения привычки и пересчитывает дату окончания.
+     *
+     * @param startDate новая дата начала выполнения привычки
+     */
+    public void setStartDate(LocalDateTime startDate) {
+        this.startDate = startDate;
+        calculateEndDate(this.startDate, this.executionPeriod);
+    }
+
+    /**
+     * Возвращает дату окончания выполнения привычки.
+     *
+     * @return дата окончания выполнения привычки
+     */
+    public LocalDateTime getEndDate() {
+        return endDate;
+    }
+
+    /**
+     * Рассчитывает и устанавливает дату окончания выполнения привычки на основе периода выполнения.
+     *
+     * @param date                 дата начала выполнения
+     * @param habitExecutionPeriod период выполнения (например, месяц или год)
+     */
+    private void calculateEndDate(LocalDateTime date, HabitExecutionPeriod habitExecutionPeriod) {
+        switch (habitExecutionPeriod) {
+            case MONTH -> endDate = date.plusMonths(1);
+            case YEAR -> endDate = date.plusYears(1);
+        }
+    }
+
+    /**
+     * Возвращает период выполнения привычки.
+     *
+     * @return период выполнения привычки (например, месяц или год)
+     */
+    public HabitExecutionPeriod getExecutionPeriod() {
+        return executionPeriod;
+    }
+
+    /**
+     * Устанавливает новый период выполнения привычки и пересчитывает дату окончания.
+     *
+     * @param executionPeriod новый период выполнения привычки
+     */
+    public void setExecutionPeriod(HabitExecutionPeriod executionPeriod) {
+        this.executionPeriod = executionPeriod;
+        calculateEndDate(this.startDate, this.executionPeriod);
+    }
+
+    /**
+     * Переопределяет метод {@code hashCode()} для генерации хеш-кода на основе идентификатора привычки.
+     *
+     * @return хеш-код привычки
      */
     @Override
     public int hashCode() {
@@ -195,20 +279,20 @@ public class Habit {
     }
 
     /**
-     * Переопределение метода {@code equals()} для сравнения объектов по уникальному идентификатору.
+     * Переопределяет метод {@code equals()} для сравнения объектов по идентификатору.
      * <p>
      * Два объекта {@code Habit} считаются равными, если у них одинаковые идентификаторы.
      * </p>
      *
      * @param obj объект для сравнения
-     * @return {@code true}, если объекты равны, иначе {@code false}
+     * @return {@code true}, если объекты равны по идентификатору, иначе {@code false}
      */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         Habit habit = (Habit) obj;
-        return Objects.equals(id, habit.id);
+        return id == habit.id;
     }
 
     /**
@@ -219,6 +303,6 @@ public class Habit {
     @Override
     public String toString() {
         return String.format("Привычка: %s, Описание: %s, Частота: %s, Дата создания: %s, Дата начала: %s, Период: %s, Дата окончания: %s, Статус: %s",
-                name, description, frequency, createdDate, habitStatistic.getStartDate(), habitStatistic.getExecutionPeriod(), habitStatistic.getEndDate(), status);
+                name, description, frequency, createdDate, startDate, executionPeriod, endDate, status);
     }
 }

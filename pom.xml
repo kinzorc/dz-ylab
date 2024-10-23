@@ -24,6 +24,7 @@
         <liquibase.version>4.29.2</liquibase.version>
         <testcontainers.version>1.20.2</testcontainers.version>
         <commons-compress.version>1.27.1</commons-compress.version>
+        <opencsv.version>5.7.1</opencsv.version>
     </properties>
 
     <dependencies>
@@ -73,6 +74,11 @@
             <version>${liquibase.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-commercial</artifactId>
+            <version>${liquibase.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <version>${testcontainers.version}</version>
@@ -81,7 +87,12 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.27.1</version>
+            <version>${commons-compress.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>${opencsv.version}</version>
         </dependency>
     </dependencies>
 

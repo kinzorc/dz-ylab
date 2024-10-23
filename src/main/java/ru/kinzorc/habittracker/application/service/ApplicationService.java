@@ -1,15 +1,23 @@
 package ru.kinzorc.habittracker.application.service;
 
 import ru.kinzorc.habittracker.application.dto.UserDTO;
+import ru.kinzorc.habittracker.core.entities.Habit;
+import ru.kinzorc.habittracker.core.entities.HabitStatistic;
 import ru.kinzorc.habittracker.core.entities.User;
+import ru.kinzorc.habittracker.core.enums.Habit.HabitData;
+import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
+import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
 import ru.kinzorc.habittracker.core.enums.User.UserRole;
+import ru.kinzorc.habittracker.core.exceptions.HabitAlreadyExistsException;
+import ru.kinzorc.habittracker.core.exceptions.HabitNotFoundException;
 import ru.kinzorc.habittracker.core.exceptions.UserAlreadyExistsException;
 import ru.kinzorc.habittracker.core.exceptions.UserNotFoundException;
 import ru.kinzorc.habittracker.core.repository.HabitRepository;
 import ru.kinzorc.habittracker.core.repository.UserRepository;
 
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -190,6 +198,178 @@ public class ApplicationService {
         } catch (SQLException e) {
             System.err.println("Ошибка! Попробуйте еще раз" + e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Добавляет новую привычку для пользователя.
+     *
+     * @param user            пользователь, которому добавляется привычка
+     * @param habitName       имя привычки
+     * @param description     описание привычки
+     * @param frequency       частота выполнения привычки
+     * @param executionPeriod период выполнения привычки
+     * @param startDate       дата начала выполнения
+     */
+    public void addHabit(User user, String habitName, String description, HabitFrequency frequency,
+                         LocalDateTime startDate, HabitExecutionPeriod executionPeriod) {
+        try {
+            Habit habit = new Habit(habitName, description, frequency, startDate, executionPeriod);
+            habitRepository.addHabit(user, habit);
+            System.out.println("Привычка добавлена успешно!");
+        } catch (HabitAlreadyExistsException e) {
+            System.err.println("Привычка с таким именем уже существует.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при добавлении привычки в базу данных.");
+        }
+    }
+
+    /**
+     * Удаляет привычку по её ID.
+     *
+     * @param habitId ID привычки
+     */
+    public void deleteHabit(long habitId) {
+        try {
+            habitRepository.deleteHabit(habitId);
+            System.out.println("Привычка удалена успешно.");
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при удалении привычки.");
+        }
+    }
+
+    /**
+     * Редактирует существующую привычку.
+     *
+     * @param habit обновленный объект привычки
+     */
+    public void editHabit(Habit habit) {
+        try {
+            habitRepository.editHabit(habit);
+            System.out.println("Привычка успешно обновлена.");
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при обновлении привычки.");
+        }
+    }
+
+    /**
+     * Добавляет отметку о выполнении привычки на указанную дату.
+     *
+     * @param habitId       ID привычки
+     * @param executionDate дата выполнения
+     */
+    public void markExecution(long habitId, LocalDateTime executionDate) {
+        try {
+            habitRepository.markExecution(habitId, executionDate);
+            System.out.println("Отметка о выполнении привычки добавлена.");
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при добавлении отметки о выполнении.");
+        }
+    }
+
+    /**
+     * Сбрасывает статистику выполнения привычки.
+     *
+     * @param habitId         ID привычки
+     * @param resetExecutions сброс выполненных действий
+     * @param resetStreaks    сброс стриков
+     */
+    public void resetStatistics(long habitId, boolean resetExecutions, boolean resetStreaks) {
+        try {
+            habitRepository.resetStatistics(habitId, resetExecutions, resetStreaks);
+            System.out.println("Статистика привычки успешно сброшена.");
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при сбросе статистики.");
+        }
+    }
+
+    /**
+     * Возвращает список всех привычек.
+     *
+     * @return список всех привычек
+     */
+    public List<Habit> getAllHabits() {
+        try {
+            return habitRepository.findAllHabits();
+        } catch (SQLException e) {
+            System.err.println("Ошибка при получении списка привычек.");
+            return List.of();
+        }
+    }
+
+    /**
+     * Возвращает привычку по её имени.
+     *
+     * @param habitName имя привычки
+     * @return объект привычки
+     */
+    public Optional<Habit> findHabitByName(String habitName) {
+        try {
+            return habitRepository.findHabit(HabitData.NAME, habitName);
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+            return Optional.empty();
+        } catch (SQLException e) {
+            System.err.println("Ошибка при поиске привычки.");
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Возвращает статистику выполнения привычки за указанный период.
+     *
+     * @param habitId         ID привычки
+     * @param startPeriodDate начало периода
+     * @param endPeriodDate   конец периода
+     * @return объект {@link HabitStatistic} с данными за указанный период
+     */
+    public HabitStatistic getHabitStatistic(long habitId, LocalDateTime startPeriodDate, LocalDateTime endPeriodDate) {
+        try {
+            return habitRepository.getStatisticByPeriod(habitId, startPeriodDate, endPeriodDate);
+        } catch (HabitNotFoundException e) {
+            System.err.println("Привычка не найдена.");
+            return null;
+        } catch (SQLException e) {
+            System.err.println("Ошибка при получении статистики.");
+            return null;
+        }
+    }
+
+    /**
+     * Рассчитывает процент выполнения привычки.
+     *
+     * @param habitId ID привычки
+     * @return процент выполнения
+     */
+    public int calculateExecutionPercentage(long habitId) {
+        try {
+            return habitRepository.calculateExecutionPercentage(habitId);
+        } catch (SQLException e) {
+            System.err.println("Ошибка при расчете процента выполнения.");
+            return 0;
+        }
+    }
+
+    /**
+     * Проверяет, существует ли привычка с указанным именем.
+     *
+     * @param habitName имя привычки
+     * @return {@code true}, если привычка существует, иначе {@code false}
+     */
+    public boolean isHabitExist(String habitName) {
+        try {
+            return habitRepository.isHabitExist(habitName);
+        } catch (SQLException e) {
+            System.err.println("Ошибка при проверке существования привычки.");
+            return false;
         }
     }
 

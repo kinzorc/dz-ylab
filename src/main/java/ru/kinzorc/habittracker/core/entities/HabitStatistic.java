@@ -1,7 +1,5 @@
 package ru.kinzorc.habittracker.core.entities;
 
-import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,141 +9,83 @@ import java.util.TreeSet;
 /**
  * Класс представляет статистику выполнения привычки.
  * <p>
- * Включает данные о дате начала и окончания выполнения привычки, периоде выполнения,
- * проценте выполнения, а также содержит информацию о выполнениях привычки по дням и истории выполнения.
+ * Включает данные о стриках (последовательных выполнениях привычки),
+ * историю выполнений и информацию о пропусках.
+ * Статистика помогает отслеживать, насколько последовательно пользователь выполняет свою привычку.
  * </p>
  */
 public class HabitStatistic {
 
     /**
-     * Коллекция для временного хранения стрика по датам,
-     * количество дат в коллекции указыает на количество стриков выполнения.
-     * При пропуске выполнения данная (пропуск нескольких дней или недель) коллекция очищается и добавляется единственная запись с текущей датой выполнения,
-     * т.е. стрик равен 1
+     * Коллекция для временного хранения стрика по датам.
      * <p>
-     * Хранит даты, каждая идущая дата подряд от дня или недели, равняется одному стрику.
+     * Количество дат в коллекции указывает на количество стриков выполнения.
+     * Если пользователь пропускает несколько дней или недель, коллекция сбрасывается,
+     * и добавляется новая запись с текущей датой, указывающая, что стрик равен 1.
+     * </p>
+     * <p>
+     * Каждая дата в коллекции представляет день или неделю, когда привычка была успешно выполнена.
+     * Непрерывная последовательность дат равняется одному стрику.
      * </p>
      */
     private final Set<LocalDateTime> streaks;
     /**
      * Список дат, когда привычка была выполнена.
+     * <p>
+     * Хранит все даты выполнения привычки, включая как успешные стрики, так и пропуски.
+     * </p>
      */
     private final List<LocalDateTime> executions;
     /**
-     * Дата начала выполнения привычки.
+     * Уникальный идентификатор привычки (ID) для которой создается данный объект статистики.
      */
-    private LocalDateTime startDate;
-    /**
-     * Дата окончания выполнения привычки.
-     */
-    private LocalDateTime endDate;
-    /**
-     * Период выполнения привычки (например, месяц или год).
-     * <p>
-     * Определяется значениями перечисления {@link HabitExecutionPeriod}.
-     * </p>
-     */
-    private HabitExecutionPeriod executionPeriod;
-    /**
-     * Процент выполнения привычки за определенный период.
-     */
-    private int executionPercentage;
+    private long habitId;
 
     /**
      * Конструктор для создания объекта статистики привычки.
      * <p>
-     * При создании объекта автоматически рассчитывается дата окончания выполнения привычки на основе
-     * даты начала и периода выполнения привычки.
+     * Инициализирует коллекции для хранения стриков и истории выполнений.
      * </p>
-     *
-     * @param startDate       дата начала выполнения привычки
-     * @param executionPeriod период выполнения привычки (например, месяц или год)
      */
-    public HabitStatistic(LocalDateTime startDate, HabitExecutionPeriod executionPeriod) {
-        this.startDate = startDate;
-        this.executionPeriod = executionPeriod;
+    public HabitStatistic() {
         this.streaks = new TreeSet<>();
         this.executions = new ArrayList<>();
-
-        calculateEndDate(startDate, executionPeriod);
     }
 
     /**
-     * Возвращает дату начала выполнения привычки.
+     * Возвращает идентификатор привычки (ID).
      *
-     * @return дата начала выполнения привычки
+     * @return уникальный идентификатор привычки
      */
-    public LocalDateTime getStartDate() {
-        return startDate;
+    public long getHabitId() {
+        return habitId;
     }
 
     /**
-     * Устанавливает новую дату начала выполнения привычки и пересчитывает дату окончания.
+     * Устанавливает идентификатор привычки (ID).
      *
-     * @param startDate новая дата начала выполнения привычки
+     * @param habitId новый идентификатор привычки
      */
-    public void setStartDate(LocalDateTime startDate) {
-        this.startDate = startDate;
-        calculateEndDate(this.startDate, this.executionPeriod);
+    public void setHabitId(long habitId) {
+        this.habitId = habitId;
     }
 
     /**
-     * Возвращает дату окончания выполнения привычки.
-     *
-     * @return дата окончания выполнения привычки
-     */
-    public LocalDateTime getEndDate() {
-        return endDate;
-    }
-
-    /**
-     * Рассчитывает и устанавливает дату окончания привычки в зависимости от периода выполнения.
-     *
-     * @param date                 дата начала выполнения
-     * @param habitExecutionPeriod период выполнения (месяц или год)
-     */
-    private void calculateEndDate(LocalDateTime date, HabitExecutionPeriod habitExecutionPeriod) {
-        switch (habitExecutionPeriod) {
-            case MONTH -> endDate = date.plusMonths(1);
-            case YEAR -> endDate = date.plusYears(1);
-        }
-    }
-
-    /**
-     * Возвращает период выполнения привычки (месяц или год).
-     *
-     * @return период выполнения привычки
-     */
-    public HabitExecutionPeriod getExecutionPeriod() {
-        return executionPeriod;
-    }
-
-    /**
-     * Устанавливает новый период выполнения привычки и пересчитывает дату окончания.
-     *
-     * @param executionPeriod новый период выполнения привычки
-     */
-    public void setExecutionPeriod(HabitExecutionPeriod executionPeriod) {
-        this.executionPeriod = executionPeriod;
-        calculateEndDate(this.startDate, this.executionPeriod);
-    }
-
-    /**
-     * Возвращает коллекцию выполнений привычки по датам.
+     * Возвращает коллекцию стриков выполнения привычки.
      * <p>
-     * Каждая дата в коллекции представляет день, когда привычка была успешно выполнена.
+     * Каждый элемент коллекции представляет день или неделю успешного выполнения привычки.
      * </p>
      *
-     * @return коллекция выполнений привычки
+     * @return коллекция выполнений привычки по датам
      */
     public Set<LocalDateTime> getStreaks() {
         return streaks;
     }
 
     /**
-     * Сбрасывает информацию о выполнениях привычки.
+     * Сбрасывает информацию о стриках выполнения привычки.
      * <p>
-     * Удаляет все даты из коллекции выполнений.
+     * Очищает коллекцию стриков, удаляя все даты успешных выполнений привычки.
      * </p>
      */
     public void resetStreaks() {
@@ -153,42 +93,25 @@ public class HabitStatistic {
     }
 
     /**
-     * Возвращает список дат, когда привычка была выполнена.
+     * Возвращает список всех дат выполнения привычки.
      * <p>
-     * Каждая дата в списке представляет день, когда привычка была выполнена.
+     * Включает как даты успешных выполнений, так и любые даты попыток,
+     * даже если привычка была выполнена не регулярно.
      * </p>
      *
-     * @return список выполнений привычки
+     * @return список всех выполнений привычки
      */
     public List<LocalDateTime> getExecutions() {
         return executions;
     }
 
     /**
-     * Сбрасывает список выполнений привычки.
+     * Сбрасывает список всех выполнений привычки.
      * <p>
-     * Очищает список всех дат выполнения привычки.
+     * Полностью очищает историю выполнения привычки.
      * </p>
      */
     public void resetExecutions() {
         this.executions.clear();
-    }
-
-    /**
-     * Возвращает процент выполнения привычки за определенный период.
-     *
-     * @return процент выполнения привычки
-     */
-    public int getExecutionPercentage() {
-        return executionPercentage;
-    }
-
-    /**
-     * Устанавливает процент выполнения привычки.
-     *
-     * @param percentage новый процент выполнения привычки
-     */
-    public void setExecutionPercentage(int percentage) {
-        this.executionPercentage = percentage;
     }
 }

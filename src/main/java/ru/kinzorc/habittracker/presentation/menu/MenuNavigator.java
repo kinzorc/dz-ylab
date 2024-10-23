@@ -11,8 +11,7 @@ public enum MenuNavigator {
     ACCOUNT_MENU(new AccountMenu()),
     ADMIN_MENU(new AdminMenu()),
     USER_PROFILE_MENU(new UserProfileMenu()),
-    HABIT_MENU(new HabitMenu()),
-    HABIT_METRICS_MENU(new HabitMetricsMenu());
+    HABIT_MENU(new HabitMenu());
 
     private final Menu menu;
 

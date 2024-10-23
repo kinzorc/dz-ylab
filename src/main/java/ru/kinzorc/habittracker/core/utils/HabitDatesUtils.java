@@ -47,7 +47,7 @@ public class HabitDatesUtils {
         }
     }
 
-    // Метод для расчеты диапозона дат
+    // Метод для расчета диапазона дат
     private List<LocalDate> getExecutionDateRangeFromPeriod(Habit habit, LocalDate startDateRange, LocalDate endDateRange) {
         if (habit == null) {
             throw new IllegalArgumentException("Объект привычки (habit) не может быть null");

@@ -9,11 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-public class JavaxMailSender implements EmailService {
+public class MailSender implements EmailService {
 
     private static final Properties MAIL_PROPERTIES = new Properties();
 
-    public JavaxMailSender() {
+    public MailSender() {
         loadProperties();
     }
 
@@ -52,7 +52,7 @@ public class JavaxMailSender implements EmailService {
 
     // Метод для загрузки конфигурационного файла
     private void loadProperties() {
-        try (InputStream inputStream = JavaxMailSender.class.getResourceAsStream("/application.properties")) {
+        try (InputStream inputStream = MailSender.class.getResourceAsStream("/application.properties")) {
             MAIL_PROPERTIES.load(inputStream);
         } catch (IOException e) {
             System.err.println("Ошибка чтения конфигурационного файла: " + e.getMessage());
