@@ -84,7 +84,7 @@ public class JdbcHabitRepositoryTest {
     void updateHabit_success() throws SQLException, HabitAlreadyExistsException, HabitNotFoundException {
         HabitDTO testHabit = new HabitDTO(new Habit("test_habit3", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
         testHabit.setUserId(testUser.getId());
-        
+
         habitRepository.addHabit(testUser, testHabit);
 
         Optional<HabitDTO> testHabitOptional = habitRepository.findHabitByName(testHabit.getName());
