@@ -78,8 +78,8 @@ public class UserDTO {
         this.username = resultSet.getString("username");
         this.email = resultSet.getString("email");
         this.password = resultSet.getString("password");
-        this.userRole = UserRole.valueOf(resultSet.getString("role_name").toUpperCase());
-        this.userStatusAccount = UserStatusAccount.valueOf(resultSet.getString("status_account").toUpperCase());
+        this.userRole = UserRole.valueOf(resultSet.getString("role").toUpperCase());
+        this.userStatusAccount = UserStatusAccount.valueOf(resultSet.getString("status").toUpperCase());
     }
 
     // Геттеры и сеттеры

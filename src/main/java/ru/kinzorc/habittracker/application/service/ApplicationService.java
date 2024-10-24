@@ -100,12 +100,10 @@ public class ApplicationService {
 
         try {
             userRepository.updateUser(new UserDTO(user));
-
-            System.out.println("Данные пользователя успешно обновлены.");
         } catch (SQLException e) {
             System.err.println("Ошибка обновления данных пользователя.");
         } catch (UserNotFoundException e) {
-            System.err.println("Пользователь не найден!");
+            System.err.println(e.getMessage());
         }
     }
 

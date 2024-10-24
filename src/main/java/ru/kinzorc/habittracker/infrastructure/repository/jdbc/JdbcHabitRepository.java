@@ -40,7 +40,8 @@ public class JdbcHabitRepository implements HabitRepository {
      */
     @Override
     public void addHabit(UserDTO user, HabitDTO habit) throws HabitAlreadyExistsException, SQLException {
-        String query = "INSERT INTO app_schema.habits (user_id, habit_name, description, frequency, created_date, start_date, end_date, execution_period, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String query = "INSERT INTO app_schema.habits (user_id, habit_name, description, frequency, created_date, start_date, end_date, " +
+                "execution_period, status, streak, execution_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         // Проверка на существование привычки у пользователя
         if (isHabitExistForUser(user.getId(), habit.getName())) {
@@ -50,11 +51,17 @@ public class JdbcHabitRepository implements HabitRepository {
         try (Connection connection = jdbcConnector.getConnection();
              PreparedStatement statement = connection.prepareStatement(query)) {
 
-            Object[] params = habit.toSqlParams();
-
-            for (int i = 1; i < params.length; i++) {
-                statement.setObject(i, params[i]);
-            }
+            statement.setLong(1, user.getId());
+            statement.setString(2, habit.getName());
+            statement.setString(3, habit.getDescription());
+            statement.setString(4, habit.getFrequency().toString().toLowerCase());
+            statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
+            statement.setTimestamp(6, Timestamp.valueOf(LocalDateTime.of(habit.getStartDate(), LocalTime.MIDNIGHT)));
+            statement.setTimestamp(7, Timestamp.valueOf(LocalDateTime.of(habit.getEndDate(), LocalTime.MAX)));
+            statement.setString(8, habit.getExecutionPeriod().toString().toLowerCase());
+            statement.setString(9, habit.getStatus().toString().toLowerCase());
+            statement.setInt(10, 0);
+            statement.setInt(11, 0);
 
             statement.executeUpdate();
         }
@@ -72,12 +79,12 @@ public class JdbcHabitRepository implements HabitRepository {
 
             statement.setLong(1, habitId);
 
+            resetExecutions(habitId);
             int rowsDeleted = statement.executeUpdate();
             if (rowsDeleted == 0) {
                 throw new HabitNotFoundException("Привычка с данным ID не найдена.");
             }
 
-            resetExecutions(habitId);
         }
     }
 
@@ -106,7 +113,7 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void deleteAllHabit(UserDTO user) throws UserNotFoundException, HabitNotFoundException, SQLException {
+    public void deleteAllHabit(UserDTO user) throws HabitNotFoundException, SQLException {
         String query = "DELETE FROM app_schema.habits WHERE user_id = ?";
 
         try (Connection connection = jdbcConnector.getConnection();
@@ -152,7 +159,7 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void markExecution(HabitDTO habit, LocalDateTime executionDate) throws HabitNotFoundException, SQLException {
+    public void markExecution(HabitDTO habit, LocalDateTime executionDate) throws SQLException {
         String query = "INSERT INTO app_schema.habit_executions (habit_id, date) VALUES (?, ?)";
 
         try (Connection connection = jdbcConnector.getConnection();
@@ -266,7 +273,7 @@ public class JdbcHabitRepository implements HabitRepository {
                 while (resultSet.next()) {
                     LocalDate executionDate = resultSet.getDate("execution_date").toLocalDate();
                     statistics.put(executionDate, calculateExecutionPercentage(habit,
-                            habit.getStartDate().atStartOfDay(), LocalDateTime.of(executionDate, LocalTime.MAX)));
+                            LocalDateTime.of(habit.getStartDate(), LocalTime.MIN), LocalDateTime.of(executionDate, LocalTime.MAX)));
                 }
             }
         }
@@ -467,7 +474,7 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public Optional<HabitDTO> findHabitByName(String habitName) throws HabitNotFoundException, SQLException {
+    public Optional<HabitDTO> findHabitByName(String habitName) throws SQLException {
         String query = "SELECT * FROM app_schema.habits WHERE habit_name = ?";
         HabitDTO habit = null;
 

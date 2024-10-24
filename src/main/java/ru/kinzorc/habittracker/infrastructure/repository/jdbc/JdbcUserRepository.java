@@ -37,32 +37,30 @@ public class JdbcUserRepository implements UserRepository {
      */
     @Override
     public void createUser(UserDTO user) throws UserAlreadyExistsException, SQLException {
-        String checkUserQuery = "SELECT COUNT(*) FROM app_schema.users WHERE email = ?";
-        String insertUserSql = "INSERT INTO app_schema.users (username, password, email, role_name, status_account) VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection connection = jdbcConnector.getConnection()) {
-            // Проверка на существующего пользователя по email
-            try (PreparedStatement checkStatement = connection.prepareStatement(checkUserQuery)) {
-                checkStatement.setString(1, user.getEmail());
-                try (ResultSet resultSet = checkStatement.executeQuery()) {
-                    if (resultSet.next() && resultSet.getInt(1) > 0) {
-                        throw new UserAlreadyExistsException("Пользователь с таким email уже существует: " + user.getEmail());
-                    }
-                }
+        String query = "INSERT INTO app_schema.users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            try {
+                Optional<UserDTO> userDTO = findUserByEmail(user.getEmail());
+                if (userDTO.isPresent())
+                    throw new UserAlreadyExistsException("Пользователь существует!");
+            } catch (UserAlreadyExistsException e) {
+                throw new UserAlreadyExistsException(e.getMessage());
+            } catch (UserNotFoundException e) {
+                String exception = e.getMessage();
             }
 
-            // Добавление нового пользователя
-            try (PreparedStatement insertStatement = connection.prepareStatement(insertUserSql)) {
-                insertStatement.setString(1, user.getUserName());
-                insertStatement.setString(2, user.getPassword());
-                insertStatement.setString(3, user.getEmail());
-                insertStatement.setString(4, user.getUserRole().toString().toLowerCase());
-                insertStatement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
+            statement.setString(1, user.getUserName());
+            statement.setString(2, user.getPassword());
+            statement.setString(3, user.getEmail());
+            statement.setString(4, user.getUserRole().toString().toLowerCase());
+            statement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
 
-                insertStatement.executeUpdate();
-                System.out.println("Пользователь успешно создан.");
-            }
-
+            statement.executeUpdate();
+            System.out.println("Пользователь успешно создан.");
         } catch (SQLException e) {
             throw new SQLException("Ошибка при создании пользователя: " + e.getMessage(), e);
         }
@@ -78,16 +76,26 @@ public class JdbcUserRepository implements UserRepository {
         try (Connection connection = jdbcConnector.getConnection();
              PreparedStatement statement = connection.prepareStatement(query)) {
 
-            Object[] params = user.toSqlParams();
+            Optional<UserDTO> userDTO = findUserByEmail(user.getEmail());
 
-            for (int i = 1; i < params.length; i++) {
-                statement.setObject(i, params);
-            }
+            if (userDTO.isEmpty())
+                throw new UserNotFoundException("Пользователь с ID \" + user.getId() + \" не найден.");
 
+            statement.setString(1, user.getUserName());
+            statement.setString(2, user.getPassword());
+            statement.setString(3, user.getEmail());
+            statement.setString(4, user.getUserRole().toString().toLowerCase());
+            statement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
+
+            statement.setLong(6, userDTO.get().getId());
+
+            // Выполняем запрос
             int rowsUpdated = statement.executeUpdate();
 
-            if (rowsUpdated == 0)
+            // Если строка не была обновлена, бросаем исключение
+            if (rowsUpdated == 0) {
                 throw new UserNotFoundException("Пользователь с ID " + user.getId() + " не найден.");
+            }
 
             System.out.println("Пользователь с ID " + user.getId() + " успешно обновлен.");
         } catch (SQLException e) {

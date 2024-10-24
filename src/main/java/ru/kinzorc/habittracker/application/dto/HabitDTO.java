@@ -8,6 +8,8 @@ import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * Класс Data Transfer Object (DTO) для передачи данных привычки между слоями приложения.
@@ -128,6 +130,11 @@ public class HabitDTO {
         this.executionPercentage = resultSet.getInt("execution_percentage");
     }
 
+    // for tests
+    public HabitDTO() {
+
+    }
+
     // Геттеры и сеттеры
 
     public long getId() {
@@ -184,7 +191,6 @@ public class HabitDTO {
 
     public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
-        calculateEndDate(this.startDate, this.executionPeriod);
     }
 
     public LocalDate getEndDate() {
@@ -193,19 +199,6 @@ public class HabitDTO {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
-    }
-
-    /**
-     * Метод для расчета даты окончания привычки на основе периода выполнения.
-     *
-     * @param date                 дата начала выполнения
-     * @param habitExecutionPeriod период выполнения (например, месяц или год)
-     */
-    public void calculateEndDate(LocalDate date, HabitExecutionPeriod habitExecutionPeriod) {
-        switch (habitExecutionPeriod) {
-            case MONTH -> this.endDate = date.plusMonths(1);
-            case YEAR -> this.endDate = date.plusYears(1);
-        }
     }
 
     public HabitExecutionPeriod getExecutionPeriod() {
@@ -258,7 +251,8 @@ public class HabitDTO {
      * @return массив объектов для использования в SQL-запросах
      */
     public Object[] toSqlParams() {
-        return new Object[]{userId, name, description, frequency.toString().toLowerCase(), createdDate.atStartOfDay(), startDate.atStartOfDay(), endDate.atStartOfDay(),
+        return new Object[]{userId, name, description, frequency.toString().toLowerCase(), LocalDateTime.of(createdDate, LocalTime.MIDNIGHT),
+                LocalDateTime.of(startDate, LocalTime.MIDNIGHT), LocalDateTime.of(endDate, LocalTime.MAX),
                 executionPeriod.toString().toLowerCase(), status.toString().toLowerCase(), streak, executionPercentage};
     }
 }
