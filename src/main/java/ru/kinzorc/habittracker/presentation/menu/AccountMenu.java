@@ -32,7 +32,7 @@ public class AccountMenu implements Menu {
                 case 2 -> MenuNavigator.HABIT_MENU.showMenu(applicationService, menuUtils);
                 case 3 -> {
                     User currnetUser = applicationService.getCurrentUser();
-                    applicationService.deleteUser(currnetUser.getId());
+                    applicationService.deleteUser(currnetUser);
 
                     if (applicationService.getCurrentUser() == null) {
                         return;

@@ -1,76 +1,32 @@
 package ru.kinzorc.habittracker.presentation.utils;
 
-import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
-import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
-import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Random;
 import java.util.Scanner;
 
-
+/**
+ * Утилитный класс для работы с пользовательским вводом в меню.
+ * <p>
+ * Класс содержит методы для проверки и обработки ввода данных пользователей и привычек,
+ * а также для валидации данных (например, email, пароля) и генерации уникальных кодов.
+ * </p>
+ */
 public class MenuUtils {
 
-    // Проверка имени
-    public boolean isValidUsername(String name) {
-        // Имя должно содержать от 3 до 20 символов и начинаться с буквы
-        String usernameRegex = "^[a-zA-Zа-яА-Я0-9][a-zA-Zа-яА-Я0-9-]{2,19}$";
-        return name != null && name.matches(usernameRegex);
-    }
-
-    // Проверка адреса почты
-    public boolean isValidEmail(String email) {
-        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
-        return email != null && email.matches(emailRegex);
-    }
-
-    // Проверка пароля
-    // Пароль должен содержать:
-    // - минимум 8 символов
-    // - хотя бы одну цифру
-    // - хотя бы одну строчную букву
-    // - хотя бы одну заглавную букву
-    // - хотя бы один специальный символ
-    public boolean isValidPassword(String password) {
-        String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*]).{8,}$";
-        return password != null && password.matches(passwordRegex);
-    }
-
-    // Проверка на корректность кода из почты
-    public boolean isValidResetCode(String codeUser, String codeFromMail) {
-        return codeUser != null && codeUser.equals(codeFromMail);
-    }
-
-    public String promptInput(Scanner scanner, String message) {
-        System.out.print(message);
-        return scanner.nextLine();
-    }
-
-    // Метод на проверку ввода данных пользователем (name, email, password)
-    public String promptValidInputUserData(Scanner scanner, UserData param, String message, String errorMessage) {
-        while (true) {
-            String data = promptInput(scanner, message);
-            switch (param) {
-                case USERNAME -> {
-                    if (isValidUsername(data))
-                        return data;
-                }
-                case EMAIL -> {
-                    if (isValidEmail(data))
-                        return data;
-                }
-                case PASSWORD -> {
-                    if (isValidPassword(data))
-                        return data;
-                }
-            }
-            System.out.println(errorMessage);
-        }
-    }
-
-    // Метод для проверки пользователем пунктов меню: проверяется, что вводится число, а не любое другое значение
+    /**
+     * Метод для ввода номера пункта меню.
+     * <p>
+     * Запрашивает у пользователя ввод числа, проверяя, что вводится целое число.
+     * Если введено некорректное значение, пользователю выдается ошибка и предлагается повторить ввод.
+     * </p>
+     *
+     * @param scanner объект {@link Scanner} для ввода данных
+     * @return выбранный пункт меню в виде целого числа
+     */
     public int promptMenuValidInput(Scanner scanner) {
         int option;
 
@@ -87,81 +43,180 @@ public class MenuUtils {
         }
     }
 
+    /**
+     * Запрашивает ввод данных у пользователя.
+     *
+     * @param scanner объект {@link Scanner} для ввода данных
+     * @param message сообщение для пользователя, с пояснением, какие данные нужно ввести
+     * @return введенная строка
+     */
+    public String promptInput(Scanner scanner, String message) {
+        System.out.print(message);
+        return scanner.nextLine();
+    }
+
+    /**
+     * Проверяет корректность введенного имени пользователя.
+     * <p>
+     * Имя должно содержать от 3 до 20 символов, начинаться с буквы или цифры и может включать дефис.
+     * </p>
+     *
+     * @param name имя пользователя для проверки
+     * @return true, если имя корректное, иначе false
+     */
+    public boolean isValidUsername(String name) {
+        String usernameRegex = "^[a-zA-Zа-яА-Я0-9][a-zA-Zа-яА-Я0-9-]{2,19}$";
+        return name != null && name.matches(usernameRegex);
+    }
+
+    /**
+     * Проверяет корректность введенного email.
+     * <p>
+     * Email должен быть в формате example@example.com.
+     * </p>
+     *
+     * @param email email для проверки
+     * @return true, если email корректен, иначе false
+     */
+    public boolean isValidEmail(String email) {
+        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
+        return email != null && email.matches(emailRegex);
+    }
+
+    /**
+     * Проверяет корректность введенного пароля.
+     * <p>
+     * Пароль должен содержать минимум 8 символов, включать хотя бы одну цифру, одну строчную и одну заглавную буквы,
+     * а также хотя бы один специальный символ.
+     * </p>
+     *
+     * @param password пароль для проверки
+     * @return true, если пароль корректен, иначе false
+     */
+    public boolean isValidPassword(String password) {
+        String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*]).{8,}$";
+        return password != null && password.matches(passwordRegex);
+    }
+
+    /**
+     * Запрашивает у пользователя ввод данных, таких как имя, email или пароль, и проверяет корректность введенных данных.
+     *
+     * @param scanner      объект {@link Scanner} для ввода данных
+     * @param param        тип данных {@link UserData} (имя, email или пароль)
+     * @param message      сообщение для ввода данных
+     * @param errorMessage сообщение об ошибке в случае некорректного ввода
+     * @return корректный ввод данных
+     */
+    public String promptValidInputUserData(Scanner scanner, UserData param, String message, String errorMessage) {
+        while (true) {
+            String data = promptInput(scanner, message);
+            switch (param) {
+                case USERNAME -> {
+                    if (isValidUsername(data)) return data;
+                }
+                case EMAIL -> {
+                    if (isValidEmail(data)) return data;
+                }
+                case PASSWORD -> {
+                    if (isValidPassword(data)) return data;
+                }
+            }
+            System.out.println(errorMessage);
+        }
+    }
+
+    /**
+     * Запрашивает у пользователя ввод частоты выполнения привычки (daily, weekly) с проверкой корректности.
+     *
+     * @param scanner      объект {@link Scanner} для ввода данных
+     * @param message      сообщение для пользователя
+     * @param errorMessage сообщение об ошибке в случае некорректного ввода
+     * @return корректное значение частоты выполнения привычки
+     */
     public String promptHabitFrequencyValid(Scanner scanner, String message, String errorMessage) {
         while (true) {
             System.out.print(message);
             String data = scanner.nextLine();
             switch (data) {
-                case "day" -> {
-                    if (data.equalsIgnoreCase(HabitFrequency.DAILY.toString()))
-                        return "DAY";
+                case "daily" -> {
+                    return "DAILY";
                 }
-                case "week" -> {
-                    if (data.equalsIgnoreCase(HabitFrequency.WEEKLY.toString()))
-                        return "WEEK";
+                case "weekly" -> {
+                    return "WEEKLY";
                 }
                 case "0" -> {
                     return "0";
                 }
-                default -> {
-                    System.out.println(errorMessage);
-                    return null;
-                }
+                default -> System.out.println(errorMessage);
             }
         }
     }
 
+    /**
+     * Запрашивает у пользователя ввод статуса привычки (active, finished) с проверкой корректности.
+     *
+     * @param scanner объект {@link Scanner} для ввода данных
+     * @param message сообщение для пользователя
+     * @param errorMessage сообщение об ошибке в случае некорректного ввода
+     * @return корректное значение статуса привычки
+     */
     public String promptHabitStatusValid(Scanner scanner, String message, String errorMessage) {
         while (true) {
             System.out.print(message);
             String data = scanner.nextLine();
             switch (data) {
                 case "active" -> {
-                    if (data.equalsIgnoreCase(HabitStatus.ACTIVE.toString()))
-                        return data;
+                    return "ACTIVE";
                 }
                 case "finished" -> {
-                    if (data.equalsIgnoreCase(HabitStatus.FINISHED.toString()))
-                        return data;
+                    return "FINISHED";
                 }
                 case "0" -> {
                     return "0";
                 }
-                default -> {
-                    System.out.println(errorMessage);
-                    return null;
-                }
+                default -> System.out.println(errorMessage);
             }
         }
     }
 
+    /**
+     * Запрашивает у пользователя ввод периода выполнения привычки (month, year) с проверкой корректности.
+     *
+     * @param scanner объект {@link Scanner} для ввода данных
+     * @param message сообщение для пользователя
+     * @param errorMessage сообщение об ошибке в случае некорректного ввода
+     * @return корректное значение периода выполнения привычки
+     */
     public String promptHabitExecutionPeriodValid(Scanner scanner, String message, String errorMessage) {
         while (true) {
             System.out.print(message);
             String data = scanner.nextLine();
             switch (data) {
                 case "month" -> {
-                    if (data.equalsIgnoreCase(HabitExecutionPeriod.MONTH.toString()))
-                        return data;
+                    return "MONTH";
                 }
                 case "year" -> {
-                    if (data.equalsIgnoreCase(HabitExecutionPeriod.YEAR.toString()))
-                        return data;
+                    return "YEAR";
                 }
                 case "0" -> {
                     return "0";
                 }
-                default -> {
-                    System.out.println(errorMessage);
-                    return null;
-                }
+                default -> System.out.println(errorMessage);
             }
         }
     }
 
-    public LocalDateTime promptDateValid(Scanner scanner, String message, String errorMessage) {
+    /**
+     * Запрашивает у пользователя корректную дату в формате "dd.MM.yyyy" с проверкой.
+     *
+     * @param scanner      объект {@link Scanner} для ввода данных
+     * @param message      сообщение для пользователя
+     * @param errorMessage сообщение об ошибке в случае некорректного ввода
+     * @return корректная дата выполнения привычки в формате {@link LocalDate}
+     */
+    public LocalDate promptDateValid(Scanner scanner, String message, String errorMessage) {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        LocalDateTime date;
+        LocalDate date = null;
 
         while (true) {
             System.out.print(message);
@@ -170,21 +225,39 @@ public class MenuUtils {
             if (data.equalsIgnoreCase("0"))
                 return null;
 
-            // Парсим строку в дату
             try {
-                date = LocalDateTime.parse(data, dateFormatter);
-                break;
-            } catch (Exception e) {
+                date = LocalDate.parse(data, dateFormatter);
+            } catch (DateTimeParseException e) {
                 System.out.println(errorMessage);
             }
+
+            if (date == null)
+                System.err.println("Ошибка в преобразовании даты, попробуйте еще раз.");
+            else
+                break;
         }
 
         return date;
     }
 
+    /**
+     * Генерирует шестизначный код для сброса пароля.
+     *
+     * @return шестизначный код в виде строки
+     */
     public String generateResetCode() {
         Random random = new Random();
         return String.valueOf(100000 + random.nextInt(900000));
     }
 
+    /**
+     * Проверяет корректность введенного пользователем кода для сброса пароля.
+     *
+     * @param codeUser     код, введенный пользователем
+     * @param codeFromMail код, отправленный на почту
+     * @return true, если коды совпадают, иначе false
+     */
+    public boolean isValidResetCode(String codeUser, String codeFromMail) {
+        return codeUser != null && codeUser.equals(codeFromMail);
+    }
 }

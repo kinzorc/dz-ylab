@@ -2,11 +2,13 @@ package ru.kinzorc.habittracker.presentation.menu;
 
 import ru.kinzorc.habittracker.application.dto.UserDTO;
 import ru.kinzorc.habittracker.application.service.ApplicationService;
+import ru.kinzorc.habittracker.core.entities.User;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
 import ru.kinzorc.habittracker.presentation.utils.MenuUtils;
 import ru.kinzorc.habittracker.presentation.utils.PrintUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 
@@ -26,14 +28,14 @@ public class AdminMenu implements Menu {
 
             switch (option) {
                 case 1 -> {
-                    List<UserDTO> users = applicationService.findAllUsers();
+                    List<User> users = applicationService.getAllUsers();
 
                     if (users.isEmpty()) {
                         System.out.println("Произошла ошибка, попробуйте еще раз.");
                         return;
                     }
 
-                    PrintUtils.pintAllUsers(users);
+                    PrintUtils.pintAllUsers(users.stream().map(UserDTO::new).toList());
                     menuUtils.promptInput(scanner, "Введите enter для выхода...");
                 }
                 case 2 -> {
@@ -43,9 +45,9 @@ public class AdminMenu implements Menu {
                 case 3 -> {
                     String value = menuUtils.promptInput(scanner, "Введите id пользователя: ");
 
-                    boolean isFind = applicationService.findUser(UserData.ID, value);
+                    Optional<User> user = applicationService.getUser(UserData.ID, value);
 
-                    if (isFind) {
+                    if (user.isPresent()) {
                         long userId = Long.parseLong(value);
 
                         if (applicationService.getCurrentUser().getId() == userId) {
@@ -53,15 +55,15 @@ public class AdminMenu implements Menu {
                             return;
                         }
 
-                        applicationService.blockUser(userId);
+                        applicationService.blockUser(user.get());
                     }
                 }
                 case 4 -> {
                     String value = menuUtils.promptInput(scanner, "Введите id пользователя: ");
 
-                    boolean isFind = applicationService.findUser(UserData.ID, value);
+                    Optional<User> user = applicationService.getUser(UserData.ID, value);
 
-                    if (isFind) {
+                    if (user.isPresent()) {
                         long userId = Long.parseLong(value);
 
                         if (applicationService.getCurrentUser().getId() == userId) {
@@ -69,7 +71,7 @@ public class AdminMenu implements Menu {
                             return;
                         }
 
-                        applicationService.deleteUser(userId);
+                        applicationService.deleteUser(user.get());
                     }
                 }
                 case 5 -> {

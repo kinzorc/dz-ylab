@@ -1,10 +1,9 @@
 package ru.kinzorc.habittracker.application.service;
 
+import ru.kinzorc.habittracker.application.dto.HabitDTO;
 import ru.kinzorc.habittracker.application.dto.UserDTO;
 import ru.kinzorc.habittracker.core.entities.Habit;
-import ru.kinzorc.habittracker.core.entities.HabitStatistic;
 import ru.kinzorc.habittracker.core.entities.User;
-import ru.kinzorc.habittracker.core.enums.Habit.HabitData;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
 import ru.kinzorc.habittracker.core.enums.User.UserData;
@@ -17,8 +16,12 @@ import ru.kinzorc.habittracker.core.repository.HabitRepository;
 import ru.kinzorc.habittracker.core.repository.UserRepository;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class ApplicationService {
@@ -33,16 +36,16 @@ public class ApplicationService {
         this.habitRepository = habitRepository;
     }
 
-    public void registerUser(String name, String password, String email) {
+    public void createUser(String name, String password, String email) {
         if (name != null && password != null && email != null) {
             try {
                 User user = new User(name, password, email, UserRole.USER);
-                userRepository.addUser(user);
+                userRepository.createUser(new UserDTO(user));
                 System.out.println("Вы успешно зарегистрировались!");
             } catch (UserAlreadyExistsException e) {
                 System.out.println("Пользователь с таким email уже зарегистрирован!");
             } catch (SQLException e) {
-                System.err.println("Ошибка добавления пользователя в базу!" + e.getMessage());
+                System.err.println("Ошибка добавления пользователя в базу: " + e.getMessage());
             }
         } else {
             System.err.println("Некорректные или пустые данные: имя, пароль, email.");
@@ -51,18 +54,21 @@ public class ApplicationService {
 
     public boolean loginUser(String email, String password) {
         try {
-            Optional<UserDTO> userDTO = userRepository.findUser(UserData.EMAIL, email);
+            Optional<UserDTO> userDTO = userRepository.findUserByEmail(email);
             if (userDTO.isPresent()) {
                 User user = userDTO.get().toUser();
 
                 if (user.getPassword().equals(password)) {
                     currentUser = user;
                     userRepository.addSession(userDTO.get().getId());
+
+                    System.out.println("Вы успешно авторизовались!");
+
                     return true;
                 }
             }
 
-            System.err.println("Неудачная попытка входа. Попробуйте еще раз.");
+            System.err.println("Неудачная попытка входа! Попробуйте еще раз.");
             return false;
         } catch (SQLException e) {
             System.err.println("Ошибка в запросе к базе данных" + e.getMessage());
@@ -77,30 +83,23 @@ public class ApplicationService {
         try {
             currentUser = null;
             userRepository.removeSession(user.getId());
-            System.out.println("Выход из аккаунта " + user.getUserName());
+            System.out.println("Выход из аккаунта: " + user.getUserName());
             return true;
         } catch (SQLException e) {
-            System.err.println("Произошла ошибка! Попробуйте еще раз!");
+            System.err.println("Произошла ошибка! Попробуйте еще раз! " + e.getMessage());
             return false;
         }
     }
 
     // Изменение данных пользователя (имя, email, пароль)
-    public void editUser(User user, UserData userData, String newValue) {
+    public void editUser(User user) {
         if (currentUser == null) {
             System.err.println("Вы не авторизованы!");
             return;
         }
 
         try {
-            userRepository.editUser(user, userData, newValue);
-
-            if (userData == UserData.USERNAME)
-                currentUser.setUserName(newValue);
-            else if (userData == UserData.EMAIL)
-                currentUser.setEmail(newValue);
-            else if (userData == UserData.PASSWORD)
-                currentUser.setPassword(newValue);
+            userRepository.updateUser(new UserDTO(user));
 
             System.out.println("Данные пользователя успешно обновлены.");
         } catch (SQLException e) {
@@ -111,14 +110,14 @@ public class ApplicationService {
     }
 
     // Изменение роли пользователя
-    public void changeUserRole(User user, UserRole newRole) {
+    public void changeUserRole(User user) {
         if (currentUser == null || !currentUser.getUserRole().equals(UserRole.ADMIN)) {
             System.err.println("У вас недостаточно прав для изменения роли.");
             return;
         }
 
         try {
-            userRepository.updateUserPrivileges(user.getId(), newRole);
+            userRepository.updateUser(new UserDTO(user));
             System.out.println("Роль пользователя успешно обновлена.");
         } catch (SQLException e) {
             System.err.println("Ошибка при обновлении роли.");
@@ -127,64 +126,85 @@ public class ApplicationService {
         }
     }
 
-    // Блокировка пользователя с удалением сессии
-    public void blockUser(long userId) {
-        if (currentUser == null || !currentUser.getUserRole().equals(UserRole.ADMIN)) {
-            System.err.println("У вас недостаточно прав для блокировки пользователя.");
-            return;
-        }
-
-        try {
-            userRepository.removeSession(userId);
-            userRepository.blockUser(userId);
-            System.out.println("Пользователь успешно заблокирован.");
-        } catch (SQLException e) {
-            System.err.println("Ошибка при блокировке пользователя.");
-        } catch (UserNotFoundException e) {
-            System.err.println("Пользователь не найден!");
-        }
-    }
-
     // Удаление пользователя с удалением сессии
-    public void deleteUser(long userId) {
+    public void deleteUser(User user) {
         if (currentUser == null || !currentUser.getUserRole().equals(UserRole.ADMIN)) {
             System.err.println("У вас недостаточно прав для удаления пользователя.");
             return;
         }
 
         try {
-            userRepository.removeSession(userId);
-            userRepository.deleteUser(userId);
+            userRepository.removeSession(user.getId());
+
+            try {
+                habitRepository.deleteAllHabitsForUser(new UserDTO(user));
+                habitRepository.resetAllExecutionsForUser(new UserDTO(user));
+            } catch (HabitNotFoundException e) {
+                System.err.println("Привычки и их выполнения не найдены для пользователя, удаление продолжается...");
+            }
+
+            userRepository.deleteUser(user.getId());
             currentUser = null;
             System.out.println("Пользователь успешно удален.");
         } catch (SQLException e) {
-            System.err.println("Ошибка при удалении пользователя.");
+            System.err.println("Ошибка при удалении пользователя: " + e.getMessage());
         } catch (UserNotFoundException e) {
             System.err.println("Пользователь не найден!");
         }
     }
 
-    public boolean findUser(UserData userData, String value) {
-        boolean result = false;
-
-        try {
-            Optional<UserDTO> userDTO = userRepository.findUser(userData, value);
-
-            switch (userData) {
-                case ID -> result = userDTO.map(dto -> dto.getId() == Long.parseLong(value)).orElse(false);
-                case USERNAME -> result = userDTO.map(dto -> dto.getUserName().equals(value)).orElse(false);
-                case EMAIL -> result = userDTO.map(dto -> dto.getEmail().equals(value)).orElse(false);
-                default -> System.err.println("Указан неправильный параметр пользователя!");
-            }
-        } catch (UserNotFoundException e) {
-            System.err.println("Пользователь не найден или некорректный email.");
-        } catch (SQLException e) {
-            System.err.println("Ошибка! Попробуйте еще раз" + e.getMessage());
+    // Блокировка пользователя с удалением сессии
+    public void blockUser(User user) {
+        if (currentUser == null || !currentUser.getUserRole().equals(UserRole.ADMIN)) {
+            System.err.println("У вас недостаточно прав для блокировки пользователя.");
+            return;
         }
 
-        return result;
+        try {
+            userRepository.removeSession(user.getId());
+            userRepository.updateUser(new UserDTO(user));
+            System.out.println("Пользователь успешно заблокирован.");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при блокировке пользователя: " + e.getMessage());
+        } catch (UserNotFoundException e) {
+            System.err.println("Пользователь не найден!");
+        }
     }
 
+    public Optional<User> getUser(UserData userData, String value) {
+        try {
+            Optional<UserDTO> userDTO = switch (userData) {
+                case ID -> userRepository.findUserById(Long.parseLong(value));
+                case USERNAME -> userRepository.findUserByUserName(value);
+                case EMAIL -> userRepository.findUserByEmail(value);
+                default -> {
+                    System.err.println("Указан неправильный параметр пользователя!");
+                    yield Optional.empty();
+                }
+            };
+
+            return userDTO.map(UserDTO::toUser);
+        } catch (UserNotFoundException e) {
+            System.err.println("Пользователь не найден или введены некорректные данные");
+        } catch (SQLException e) {
+            System.err.println("Ошибка при работе с базой данных: " + e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    public List<User> getAllUsers() {
+        List<User> users;
+
+        try {
+            users = userRepository.findAllUsers().stream().map(UserDTO::toUser).toList();
+        } catch (SQLException e) {
+            System.err.println("Ошибка! Попробуйте еще раз" + e.getMessage());
+            return null;
+        }
+
+        return users;
+    }
 
     public User getCurrentUser() {
         if (currentUser == null) {
@@ -193,15 +213,6 @@ public class ApplicationService {
         }
 
         return currentUser;
-    }
-
-    public List<UserDTO> findAllUsers() {
-        try {
-            return userRepository.findAllUsers();
-        } catch (SQLException e) {
-            System.err.println("Ошибка! Попробуйте еще раз" + e.getMessage());
-            return null;
-        }
     }
 
     /**
@@ -215,10 +226,17 @@ public class ApplicationService {
      * @param startDate       дата начала выполнения
      */
     public void addHabit(User user, String habitName, String description, HabitFrequency frequency,
-                         LocalDateTime startDate, HabitExecutionPeriod executionPeriod) {
+                         LocalDate startDate, HabitExecutionPeriod executionPeriod) {
+
+        if (habitName == null || description == null || frequency == null || startDate == null || executionPeriod == null) {
+            System.err.println("Указаны некорректные реквизиты для добавления привычки!");
+            return;
+        }
+
         try {
             Habit habit = new Habit(habitName, description, frequency, startDate, executionPeriod);
-            habitRepository.addHabit(user, habit);
+
+            habitRepository.addHabit(new UserDTO(user), new HabitDTO(habit));
             System.out.println("Привычка добавлена успешно!");
         } catch (HabitAlreadyExistsException e) {
             System.err.println("Привычка с таким именем уже существует.");
@@ -234,7 +252,9 @@ public class ApplicationService {
      */
     public void deleteHabit(long habitId) {
         try {
+            habitRepository.resetExecutions(habitId);
             habitRepository.deleteHabit(habitId);
+
             System.out.println("Привычка удалена успешно.");
         } catch (HabitNotFoundException e) {
             System.err.println("Привычка не найдена.");
@@ -250,10 +270,10 @@ public class ApplicationService {
      */
     public void editHabit(Habit habit) {
         try {
-            habitRepository.editHabit(habit);
+            habitRepository.updateHabit(new HabitDTO(habit));
             System.out.println("Привычка успешно обновлена.");
         } catch (HabitNotFoundException e) {
-            System.err.println("Привычка не найдена.");
+            System.err.println("Привычка не найдена!");
         } catch (SQLException e) {
             System.err.println("Ошибка при обновлении привычки.");
         }
@@ -267,7 +287,15 @@ public class ApplicationService {
      */
     public void markExecution(long habitId, LocalDateTime executionDate) {
         try {
-            habitRepository.markExecution(habitId, executionDate);
+
+            if (habitRepository.findHabitByID(habitId).isEmpty()) {
+                System.err.println("Привычка с ID " + habitId + " не найдена!");
+                return;
+            }
+
+            HabitDTO habit = habitRepository.findHabitByID(habitId).get();
+
+            habitRepository.markExecution(habit, executionDate);
             System.out.println("Отметка о выполнении привычки добавлена.");
         } catch (HabitNotFoundException e) {
             System.err.println("Привычка не найдена.");
@@ -288,9 +316,9 @@ public class ApplicationService {
             habitRepository.resetStatistics(habitId, resetExecutions, resetStreaks);
             System.out.println("Статистика привычки успешно сброшена.");
         } catch (HabitNotFoundException e) {
-            System.err.println("Привычка не найдена.");
+            System.err.println("Привычка не найдена!");
         } catch (SQLException e) {
-            System.err.println("Ошибка при сбросе статистики.");
+            System.err.println(e.getMessage());
         }
     }
 
@@ -299,11 +327,11 @@ public class ApplicationService {
      *
      * @return список всех привычек
      */
-    public List<Habit> getAllHabits() {
+    public List<HabitDTO> getAllHabits() {
         try {
             return habitRepository.findAllHabits();
         } catch (SQLException e) {
-            System.err.println("Ошибка при получении списка привычек.");
+            System.err.println(e.getMessage());
             return List.of();
         }
     }
@@ -314,11 +342,11 @@ public class ApplicationService {
      * @param habitName имя привычки
      * @return объект привычки
      */
-    public Optional<Habit> findHabitByName(String habitName) {
+    public Optional<HabitDTO> findHabitByName(String habitName) {
         try {
-            return habitRepository.findHabit(HabitData.NAME, habitName);
+            return habitRepository.findHabitByName(habitName);
         } catch (HabitNotFoundException e) {
-            System.err.println("Привычка не найдена.");
+            System.err.println(e.getMessage());
             return Optional.empty();
         } catch (SQLException e) {
             System.err.println("Ошибка при поиске привычки.");
@@ -329,16 +357,21 @@ public class ApplicationService {
     /**
      * Возвращает статистику выполнения привычки за указанный период.
      *
-     * @param habitId         ID привычки
+     * @param habitName        имя привычки
      * @param startPeriodDate начало периода
      * @param endPeriodDate   конец периода
-     * @return объект {@link HabitStatistic} с данными за указанный период
+     * @return объект {@link HashMap} с данными за указанный период дата выполнения, процент успешного выполнения на эту дату
      */
-    public HabitStatistic getHabitStatistic(long habitId, LocalDateTime startPeriodDate, LocalDateTime endPeriodDate) {
+    public Map<LocalDate, Integer> getHabitStatistic(String habitName, LocalDateTime startPeriodDate, LocalDateTime endPeriodDate) {
         try {
-            return habitRepository.getStatisticByPeriod(habitId, startPeriodDate, endPeriodDate);
+            Optional<HabitDTO> habit = habitRepository.findHabitByName(habitName);
+
+            if (habit.isEmpty())
+                throw new HabitNotFoundException("Привычка не найдена!");
+
+            return habitRepository.getStatisticByPeriod(habit.get(), startPeriodDate, endPeriodDate);
         } catch (HabitNotFoundException e) {
-            System.err.println("Привычка не найдена.");
+            System.err.println(e.getMessage());
             return null;
         } catch (SQLException e) {
             System.err.println("Ошибка при получении статистики.");
@@ -347,33 +380,42 @@ public class ApplicationService {
     }
 
     /**
-     * Рассчитывает процент выполнения привычки.
+     * Рассчитывает процент выполнения привычки на текущую дату
      *
      * @param habitId ID привычки
      * @return процент выполнения
      */
     public int calculateExecutionPercentage(long habitId) {
         try {
-            return habitRepository.calculateExecutionPercentage(habitId);
-        } catch (SQLException e) {
-            System.err.println("Ошибка при расчете процента выполнения.");
+            Optional<HabitDTO> habit = habitRepository.findHabitByID(habitId);
+
+            HabitDTO habitDTO = null;
+
+            if (habit.isPresent()) {
+                habitDTO = habit.get();
+            } else {
+                System.err.println("Не удалось получить процент выполнения привычки!");
+                return 0;
+            }
+
+            return habitRepository.calculateExecutionPercentage(habitDTO,
+                    habitDTO.getStartDate().atStartOfDay(), LocalDateTime.of(habitDTO.getEndDate(), LocalTime.MAX));
+        } catch (SQLException | HabitNotFoundException e) {
+            System.err.println(e.getMessage());
             return 0;
         }
     }
 
+
     /**
-     * Проверяет, существует ли привычка с указанным именем.
+     * Удаляет все сессии пользователей
      *
-     * @param habitName имя привычки
-     * @return {@code true}, если привычка существует, иначе {@code false}
      */
-    public boolean isHabitExist(String habitName) {
+    public void removeAllSessions() {
         try {
-            return habitRepository.isHabitExist(habitName);
+            userRepository.removeAllSessions();
         } catch (SQLException e) {
-            System.err.println("Ошибка при проверке существования привычки.");
-            return false;
+            System.err.println(e.getMessage());
         }
     }
-
 }

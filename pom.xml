@@ -89,11 +89,6 @@
             <artifactId>commons-compress</artifactId>
             <version>${commons-compress.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
-            <version>${opencsv.version}</version>
-        </dependency>
     </dependencies>
 
     <build>

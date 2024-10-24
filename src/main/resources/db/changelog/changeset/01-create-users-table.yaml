@@ -1,29 +1,29 @@
 databaseChangeLog:
   - changeSet:
-      id: create-user-role
+      id: create-user-roles
       author: kinzorc
       changes:
         - createTable:
-            tableName: user_role
+            tableName: user_roles
             schemaName: app_schema
             columns:
               - column:
-                  name: role_name
+                  name: role
                   type: varchar(25)
                   constraints:
                     primaryKey: true
                     nullable: false
 
   - changeSet:
-      id: create-user-status-account
+      id: create-user-status
       author: kinzorc
       changes:
         - createTable:
-            tableName: user_status_account
+            tableName: user_status
             schemaName: app_schema
             columns:
               - column:
-                  name: status_account
+                  name: status
                   type: varchar(25)
                   constraints:
                     primaryKey: true
@@ -60,12 +60,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: role_name
+                  name: role
                   type: varchar(25)
                   constraints:
                     nullable: false
               - column:
-                  name: status_account
+                  name: status
                   type: varchar(25)
                   constraints:
                     nullable: false
@@ -76,18 +76,18 @@ databaseChangeLog:
       changes:
         - addForeignKeyConstraint:
             baseTableName: users
-            baseColumnNames: role_name
-            constraintName: fk_user_role
-            referencedTableName: user_role
-            referencedColumnNames: role_name
+            baseColumnNames: role
+            constraintName: fk_users_role_role_user_roles
+            referencedTableName: user_roles
+            referencedColumnNames: role
             baseTableSchemaName: app_schema
             referencedTableSchemaName: app_schema
 
         - addForeignKeyConstraint:
             baseTableName: users
-            baseColumnNames: status_account
-            constraintName: fk_user_status_account
-            referencedTableName: user_status_account
-            referencedColumnNames: status_account
+            baseColumnNames: status
+            constraintName: fk_users_status_status_user_status
+            referencedTableName: user_status
+            referencedColumnNames: status
             baseTableSchemaName: app_schema
             referencedTableSchemaName: app_schema

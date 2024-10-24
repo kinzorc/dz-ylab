@@ -30,7 +30,7 @@ public class AuthMenu implements Menu {
             case 2 -> {
                 String email = menuUtils.promptInput(scanner, "Для сброса пароля введите email пользователя: ");
 
-                if (applicationService.findUser(UserData.EMAIL, email)) {
+                if (applicationService.getUser(UserData.EMAIL, email).isPresent()) {
                     MailSender mailSender = new MailSender();
                     String resetCode = menuUtils.generateResetCode();
 
@@ -43,12 +43,7 @@ public class AuthMenu implements Menu {
                     String input = menuUtils.promptInput(scanner, "Введите код для сброса пароля: ");
 
                     if (menuUtils.isValidResetCode(input, resetCode)) {
-                        User user = applicationService.findAllUsers().stream().filter(userDTO -> userDTO.getEmail().equals(email)).findFirst().orElseThrow().toUser();
-
-                        if (user == null) {
-                            System.out.println("Пользователь не найден");
-                            return;
-                        }
+                        User user = applicationService.getAllUsers().stream().filter(userDTO -> userDTO.getEmail().equals(email)).findFirst().orElseThrow();
 
                         String newPassword = menuUtils.promptValidInputUserData(scanner, UserData.PASSWORD,
                                 "Введите новый пароль: ",
@@ -60,7 +55,8 @@ public class AuthMenu implements Menu {
                                         - хотя бы одну заглавную букву
                                         - хотя бы один специальный символ""");
 
-                        applicationService.editUser(user, UserData.PASSWORD, newPassword);
+                        user.setPassword(newPassword);
+                        applicationService.editUser(user);
                     } else {
                         System.err.println("Неверный проверочный код, выход в главное меню.");
                         MenuNavigator.MAIN_MENU.showMenu(applicationService, menuUtils);

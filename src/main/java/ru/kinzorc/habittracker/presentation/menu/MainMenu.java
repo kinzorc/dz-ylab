@@ -30,7 +30,7 @@ public class MainMenu implements Menu {
                             - хотя бы одну заглавную букву
                             - хотя бы один специальный символ"""); // ввод пароля
 
-                    applicationService.registerUser(name, email, password);
+                    applicationService.createUser(name, email, password);
                 }
                 case 2 -> MenuNavigator.AUTH_MENU.showMenu(applicationService, menuUtils);
                 case 3 -> {

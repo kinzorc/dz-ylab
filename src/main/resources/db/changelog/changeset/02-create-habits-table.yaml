@@ -33,6 +33,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: created_date
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
                   name: start_date
                   type: timestamp
                   constraints:
@@ -48,62 +53,33 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: created_date
-                  type: timestamp
-                  constraints:
-                    nullable: false
-              - column:
                   name: status
                   type: varchar(25)
                   constraints:
                     nullable: false
-
-  - addForeignKeyConstraint:
-      baseTableName: habits
-      baseColumnNames: user_id
-      baseTableSchemaName: app_schema
-      constraintName: fk_user_id
-      referencedTableName: users
-      referencedColumnNames: id
-      referencedTableSchemaName: app_schema
-
+              - column:
+                  name: streak
+                  type: smallint
+                  constraints:
+                    nullable: false
+                    checkConstraint: "streak >= 0"
+              - column:
+                  name: execution_percentage
+                  type: smallint
+                  constraints:
+                    nullable: false
+                    checkConstraint: "execution_percentage >= 0"
   - changeSet:
-      id: create-habit-streaks
-      author: kinzorc
-      changes:
-        - createTable:
-            tableName: habit_streaks
-            schemaName: app_schema
-            columns:
-              - column:
-                  name: count
-                  type: integer
-                  constraints:
-                    nullable: false
-                    checkConstraint: "count >= 0"
-              - column:
-                  name: habit_id
-                  type: bigint
-                  constraints:
-                    nullable: false
-              - column:
-                  name: date_execution
-                  type: timestamp
-                  constraints:
-                    nullable: false
-
-  - changeSet:
-      id: add-foreign-key-habit-streaks
-      author: kinzorc
-      changes:
-        - addForeignKeyConstraint:
-            baseTableName: habit_streaks
-            baseColumnNames: habit_id
-            constraintName: fk_habit_streaks_id
-            referencedTableName: habits
-            referencedColumnNames: id
-            baseTableSchemaName: app_schema
-            referencedTableSchemaName: app_schema
+      - id: add-foreign-key-habits
+      - author: kinzorc
+      - addForeignKeyConstraint:
+          baseTableName: habits
+          baseColumnNames: user_id
+          baseTableSchemaName: app_schema
+          constraintName: fk_habits_user_id_id_users
+          referencedTableName: users
+          referencedColumnNames: id
+          referencedTableSchemaName: app_schema
 
   - changeSet:
       id: create-habit-executions
@@ -115,6 +91,11 @@ databaseChangeLog:
             columns:
               - column:
                   name: habit_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
                   type: bigint
                   constraints:
                     nullable: false
@@ -131,8 +112,17 @@ databaseChangeLog:
         - addForeignKeyConstraint:
             baseTableName: habit_executions
             baseColumnNames: habit_id
-            constraintName: fk_habit_executions_id
+            constraintName: fk_habit_executions_habit_id_id_habits
             referencedTableName: habits
+            referencedColumnNames: id
+            baseTableSchemaName: app_schema
+            referencedTableSchemaName: app_schema
+
+        - addForeignKeyConstraint:
+            baseTableName: habit_executions
+            baseColumnNames: user_id
+            constraintName: fk_habit_executions_user_id_id_users
+            referencedTableName: users
             referencedColumnNames: id
             baseTableSchemaName: app_schema
             referencedTableSchemaName: app_schema

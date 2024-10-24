@@ -29,7 +29,7 @@ databaseChangeLog:
             baseTableName: users_sessions
             baseColumnNames: user_id
             baseTableSchemaName: service_schema
-            constraintName: fk_user_id
+            constraintName: fk_users_sessions_user_id_id_users
             referencedTableName: users
             referencedColumnNames: id
             referencedTableSchemaName: app_schema

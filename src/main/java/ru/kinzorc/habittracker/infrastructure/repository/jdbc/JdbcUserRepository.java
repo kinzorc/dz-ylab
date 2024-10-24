@@ -1,10 +1,6 @@
 package ru.kinzorc.habittracker.infrastructure.repository.jdbc;
 
 import ru.kinzorc.habittracker.application.dto.UserDTO;
-import ru.kinzorc.habittracker.core.entities.User;
-import ru.kinzorc.habittracker.core.enums.User.UserData;
-import ru.kinzorc.habittracker.core.enums.User.UserRole;
-import ru.kinzorc.habittracker.core.enums.User.UserStatusAccount;
 import ru.kinzorc.habittracker.core.exceptions.UserAlreadyExistsException;
 import ru.kinzorc.habittracker.core.exceptions.UserNotFoundException;
 import ru.kinzorc.habittracker.core.repository.UserRepository;
@@ -16,37 +12,92 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Реализация интерфейса {@link UserRepository} для работы с привычками с использованием JDBC.
+ * <p>
+ * Этот класс взаимодействует с базой данных PostgreSQL через JDBC и выполняет операции CRUD (создание, чтение, обновление, удаление)
+ * для пользователей
+ * </p>
+ */
 public class JdbcUserRepository implements UserRepository {
 
     private final JdbcConnector jdbcConnector;
 
+    /**
+     * Конструктор для создания экземпляра репозитория с JDBC.
+     *
+     * @param jdbcConnector экземпляр класса {@link JdbcConnector} для управления соединениями с базой данных
+     */
     public JdbcUserRepository(JdbcConnector jdbcConnector) {
         this.jdbcConnector = jdbcConnector;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void addUser(User user) throws UserAlreadyExistsException, SQLException {
-        String sql = "INSERT INTO app_schema.users (username, password, email, role_name, status_account) VALUES (?, ?, ?, ?, ?)";
+    public void createUser(UserDTO user) throws UserAlreadyExistsException, SQLException {
+        String checkUserQuery = "SELECT COUNT(*) FROM app_schema.users WHERE email = ?";
+        String insertUserSql = "INSERT INTO app_schema.users (username, password, email, role_name, status_account) VALUES (?, ?, ?, ?, ?)";
 
-        // Проверяем есть ли пользователь в базе данных
-        if (isUserExist(UserData.EMAIL, user.getEmail())) {
-            throw new UserAlreadyExistsException();
-        }
-
-        // Создаем DTO для передачи в базу данных
-        UserDTO newUser = new UserDTO(user);
-        Object[] userArray = newUser.toSqlParams();
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            for (int i = 1; i < userArray.length; i++) {
-                statement.setObject(i, userArray[i]);
+        try (Connection connection = jdbcConnector.getConnection()) {
+            // Проверка на существующего пользователя по email
+            try (PreparedStatement checkStatement = connection.prepareStatement(checkUserQuery)) {
+                checkStatement.setString(1, user.getEmail());
+                try (ResultSet resultSet = checkStatement.executeQuery()) {
+                    if (resultSet.next() && resultSet.getInt(1) > 0) {
+                        throw new UserAlreadyExistsException("Пользователь с таким email уже существует: " + user.getEmail());
+                    }
+                }
             }
 
-            statement.executeUpdate();
+            // Добавление нового пользователя
+            try (PreparedStatement insertStatement = connection.prepareStatement(insertUserSql)) {
+                insertStatement.setString(1, user.getUserName());
+                insertStatement.setString(2, user.getPassword());
+                insertStatement.setString(3, user.getEmail());
+                insertStatement.setString(4, user.getUserRole().toString().toLowerCase());
+                insertStatement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
+
+                insertStatement.executeUpdate();
+                System.out.println("Пользователь успешно создан.");
+            }
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при создании пользователя: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void updateUser(UserDTO user) throws UserNotFoundException, SQLException {
+        String query = "UPDATE app_schema.users SET username = ?, password = ?, email = ?, role = ?, status = ? WHERE id = ?";
+
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            Object[] params = user.toSqlParams();
+
+            for (int i = 1; i < params.length; i++) {
+                statement.setObject(i, params);
+            }
+
+            int rowsUpdated = statement.executeUpdate();
+
+            if (rowsUpdated == 0)
+                throw new UserNotFoundException("Пользователь с ID " + user.getId() + " не найден.");
+
+            System.out.println("Пользователь с ID " + user.getId() + " успешно обновлен.");
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при обновлении пользователя с ID " + user.getId() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteUser(long userId) throws UserNotFoundException, SQLException {
         String sql = "DELETE FROM app_schema.users WHERE id = ?";
@@ -54,186 +105,170 @@ public class JdbcUserRepository implements UserRepository {
         try (Connection connection = jdbcConnector.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
+            statement.setLong(1, userId);
 
-            statement.executeUpdate();
-        }
-    }
+            int rowsDeleted = statement.executeUpdate();
 
-    @Override
-    public void editUser(User user, UserData userData, String value) throws UserNotFoundException, SQLException {
-        String sql = String.format("UPDATE app_schema.users SET %s = ? WHERE id = ?", userData.toString().toLowerCase());
-
-        Optional<UserDTO> userDTO = findUser(UserData.ID, String.valueOf(user.getId()));
-
-        if (userDTO.isEmpty()) {
-            throw new UserNotFoundException("Пользователь не найден!");
-        }
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            switch (userData) {
-                case USERNAME -> {
-                    userDTO.get().setUserName(value);
-                    statement.setObject(1, userDTO.get().getUserName());
-                    statement.setObject(2, userDTO.get().getId());
-                }
-                case PASSWORD -> {
-                    userDTO.get().setPassword(value);
-                    statement.setObject(1, userDTO.get().getPassword());
-                    statement.setObject(2, userDTO.get().getId());
-                }
-                case EMAIL -> {
-                    userDTO.get().setEmail(value);
-                    statement.setObject(1, userDTO.get().getEmail());
-                    statement.setObject(2, userDTO.get().getId());
-                }
-                default -> throw new IllegalStateException("Неверный параметр: " + userData);
+            if (rowsDeleted == 0) {
+                throw new UserNotFoundException("Пользователь по такому ID не найден: " + userId);
             }
 
-            statement.executeUpdate();
+            System.out.println("Пользователь с ID " + userId + " успешно удален.");
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении пользователя с ID " + userId + ": " + e.getMessage());
         }
     }
 
-    @Override
-    public void blockUser(long userId) throws UserNotFoundException, SQLException {
-        String sql = "UPDATE app_schema.users SET status_account = ? WHERE id = ?";
-
-        Optional<UserDTO> userDTO = findUser(UserData.ID, String.valueOf(userId));
-
-        if (userDTO.isEmpty()) {
-            throw new UserNotFoundException("Пользователь не найден!");
-        }
-
-        userDTO.get().setUserStatusAccount(UserStatusAccount.BLOCKED);
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, userDTO.get().getUserStatusAccount().toString().toLowerCase());
-            statement.setObject(2, userDTO.get().getId());
-
-            statement.executeUpdate();
-        }
-    }
-
-    @Override
-    public void updateUserPrivileges(long userId, UserRole userRole) throws UserNotFoundException, SQLException {
-        String sql = "UPDATE app_schema.users SET role_name = ? WHERE id = ?";
-
-        Optional<UserDTO> userDTO = findUser(UserData.ID, String.valueOf(userId));
-
-        if (userDTO.isEmpty()) {
-            throw new UserNotFoundException("Пользователь не найден!");
-        }
-
-        userDTO.get().setUserRole(userRole);
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, userDTO.get().getUserRole().toString().toLowerCase());
-            statement.setObject(2, userDTO.get().getId());
-
-            statement.executeUpdate();
-        }
-    }
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<UserDTO> findAllUsers() throws SQLException {
-        String sql = "SELECT * FROM app_schema.users";
+        String query = "SELECT * FROM app_schema.users";
         List<UserDTO> users = new ArrayList<>();
 
         try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet rs = statement.executeQuery()) {
+             PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet resultSet = statement.executeQuery()) {
 
-            while (rs.next()) {
-                UserDTO userDTO = new UserDTO(rs);
+            while (resultSet.next()) {
+                UserDTO userDTO = new UserDTO(resultSet);
                 users.add(userDTO);
             }
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении списка пользователей: " + e.getMessage());
         }
 
         return users;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public Optional<UserDTO> findUser(UserData userData, String value) throws UserNotFoundException, SQLException {
-        String sql = String.format("SELECT * FROM app_schema.users WHERE %s = ?", userData.toString().toLowerCase());
-        UserDTO userDTO = null;
+    public Optional<UserDTO> findUserById(long userId) throws UserNotFoundException, SQLException {
+        String query = "SELECT * FROM app_schema.users WHERE id = ?";
+        UserDTO userDTO;
 
         try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            switch (userData) {
-                case ID -> statement.setObject(1, Long.parseLong(value));
-                case USERNAME -> statement.setObject(1, value);
-                case EMAIL -> {
-                    statement.setObject(1, value);
-                }
-                default -> throw new IllegalStateException("Неверный параметр: " + userData);
-            }
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setObject(1, userId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    userDTO = new UserDTO(resultSet);
-                }
+                if (!resultSet.next())
+                    throw new UserNotFoundException("Пользователь по такому ID не найден: " + userId);
+
+                userDTO = new UserDTO(resultSet);
             }
         } catch (SQLException e) {
-            throw new SQLException("Пользователь не найден!");
-        }
-
-        if (Optional.ofNullable(userDTO).isEmpty()) {
-            throw new UserNotFoundException(String.format("Пользователь по реквизиту %s: %s - не найден.", userData, value));
+            throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
         }
 
         return Optional.of(userDTO);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<UserDTO> findUserByUserName(String userName) throws UserNotFoundException, SQLException {
+        String query = "SELECT * FROM app_schema.users WHERE username = ?";
+        UserDTO userDTO;
+
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setObject(1, userName);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next())
+                    throw new UserNotFoundException("Пользователь с именем " + userName + " не найден");
+
+                userDTO = new UserDTO(resultSet);
+            }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
+        }
+
+        return Optional.of(userDTO);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<UserDTO> findUserByEmail(String userEmail) throws UserNotFoundException, SQLException {
+        String query = "SELECT * FROM app_schema.users WHERE email = ?";
+        UserDTO userDTO;
+
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setObject(1, userEmail);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next())
+                    throw new UserNotFoundException("Пользователь с таким email не найден: " + userEmail);
+
+                userDTO = new UserDTO(resultSet);
+            }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
+        }
+
+        return Optional.of(userDTO);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void addSession(long userId) throws SQLException {
-        String sql = "INSERT INTO service_schema.users_sessions (user_id, login_time) VALUES (?, ?)";
+        String query = "INSERT INTO service_schema.users_sessions (user_id, login_time) VALUES (?, ?)";
 
-        try (PreparedStatement statement = jdbcConnector.getConnection().prepareStatement(sql)) {
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
             statement.setLong(1, userId);
             statement.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
 
             statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при добавлении сессии пользователя: " + e.getMessage());
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void removeSession(long userId) throws SQLException {
-        String sql = "DELETE FROM service_schema.users_sessions WHERE user_id = ?";
+        String query = "DELETE FROM service_schema.users_sessions WHERE user_id = ?";
 
-        try (PreparedStatement statement = jdbcConnector.getConnection().prepareStatement(sql)) {
+        try (Connection connection = jdbcConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
             statement.setLong(1, userId);
 
-            int rowsDeleted = statement.executeUpdate();
-            if (rowsDeleted > 0) {
-                System.out.println("Сессия пользователя удалена.");
-            } else {
-                throw new SQLException("Сессия для данного пользователя не найдена.");
-            }
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении сессии пользователя: " + e.getMessage());
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public boolean isUserExist(UserData userData, String value) throws SQLException {
-        String sql = String.format("SELECT email FROM app_schema.users WHERE %s = ?", userData.toString().toLowerCase());
-        boolean result = false;
+    public void removeAllSessions() throws SQLException {
+        String query = "DELETE FROM service_schema.users_sessions";
 
         try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            switch (userData) {
-                case ID -> statement.setObject(1, Long.parseLong(value));
-                case EMAIL -> statement.setObject(1, value);
-                default -> throw new IllegalStateException("Неверный параметр: " + userData);
-            }
+             PreparedStatement statement = connection.prepareStatement(query)) {
 
-            try (ResultSet rs = statement.executeQuery()) {
-                if (rs.next()) {
-                    result = true;
-                }
-            }
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении всех сессий пользователей: " + e.getMessage());
         }
-
-        return result;
     }
 }

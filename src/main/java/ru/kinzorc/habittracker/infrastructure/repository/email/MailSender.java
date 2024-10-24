@@ -9,15 +9,38 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+/**
+ * Класс предоставляет функционал для отправки электронных писем с использованием протоколов SMTP.
+ * <p>
+ * Реализует интерфейс {@link EmailService} и использует конфигурации, загружаемые из файла свойств.
+ * </p>
+ */
 public class MailSender implements EmailService {
 
+    /**
+     * Свойства для конфигурации почтового сервиса, загружаемые из файла {@code application.properties}.
+     */
     private static final Properties MAIL_PROPERTIES = new Properties();
 
+    /**
+     * Конструктор по умолчанию, который загружает свойства для работы с почтовым сервером.
+     */
     public MailSender() {
         loadProperties();
     }
 
-    // Имплеминтируемый метод для отправки почты
+    /**
+     * Метод отправки электронного письма.
+     * <p>
+     * Использует почтовые настройки для подключения к SMTP-серверу и отправки письма.
+     * Если в конфигурации отсутствуют данные для аутентификации (логин или пароль), выбрасывается {@link IllegalArgumentException}.
+     * </p>
+     *
+     * @param recipient адрес электронной почты получателя
+     * @param subject   тема письма
+     * @param text      текст письма
+     * @throws MessagingException если возникает ошибка при отправке сообщения
+     */
     @Override
     public void sendEmail(String recipient, String subject, String text) throws MessagingException {
         final String username = MAIL_PROPERTIES.getProperty("email.username");
@@ -44,13 +67,18 @@ public class MailSender implements EmailService {
 
             Transport.send(message);
         } catch (MessagingException e) {
-            // Логируем ошибку и выбрасываем исключение дальше
             System.err.println("Ошибка отправки email: " + e.getMessage());
             throw e;
         }
     }
 
-    // Метод для загрузки конфигурационного файла
+    /**
+     * Метод для загрузки конфигурационного файла с настройками почтового сервера.
+     * <p>
+     * Загружает свойства из файла {@code application.properties}, расположенного в ресурсах приложения.
+     * Если файл не найден или возникает ошибка при его чтении, выводится сообщение об ошибке.
+     * </p>
+     */
     private void loadProperties() {
         try (InputStream inputStream = MailSender.class.getResourceAsStream("/application.properties")) {
             MAIL_PROPERTIES.load(inputStream);

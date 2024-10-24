@@ -1,53 +1,134 @@
 package ru.kinzorc.habittracker.application.dto;
 
 import ru.kinzorc.habittracker.core.entities.Habit;
-import ru.kinzorc.habittracker.core.entities.HabitStatistic;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
+/**
+ * Класс Data Transfer Object (DTO) для передачи данных привычки между слоями приложения.
+ * <p>
+ * Этот класс используется для представления привычки в виде простого объекта данных,
+ * который может быть легко передан между слоями приложения (например, между сервисом и контроллером)
+ * или при работе с базой данных.
+ * </p>
+ */
 public class HabitDTO {
 
+    /**
+     * Уникальный идентификатор привычки.
+     */
     private long id;
-    private String name;
-    private String description;
-    private HabitFrequency frequency;
-    private LocalDateTime createdDate;
-    private HabitStatus status;
-    private HabitExecutionPeriod executionPeriod;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
-    private HabitStatistic habitStatistic;
 
-    // Конструктор для создания DTO на основе данных из Habit
+    /**
+     * Идентификатор пользователя, к которому принадлежит привычка.
+     */
+    private long userId;
+
+    /**
+     * Имя привычки.
+     */
+    private String name;
+
+    /**
+     * Описание привычки.
+     */
+    private String description;
+
+    /**
+     * Частота выполнения привычки.
+     * <p>
+     * Определяется значениями перечисления {@link HabitFrequency}.
+     * </p>
+     */
+    private HabitFrequency frequency;
+
+    /**
+     * Дата создания привычки.
+     */
+    private LocalDate createdDate;
+
+    /**
+     * Дата начала выполнения привычки.
+     */
+    private LocalDate startDate;
+
+    /**
+     * Дата окончания выполнения привычки.
+     */
+    private LocalDate endDate;
+
+    /**
+     * Период выполнения привычки.
+     * <p>
+     * Определяется значениями перечисления {@link HabitExecutionPeriod}.
+     * </p>
+     */
+    private HabitExecutionPeriod executionPeriod;
+
+    /**
+     * Статус привычки.
+     * <p>
+     * Определяется значениями перечисления {@link HabitStatus}.
+     * </p>
+     */
+    private HabitStatus status;
+
+    /**
+     * Текущий стрик (серия выполнений) привычки.
+     */
+    private int streak;
+
+    /**
+     * Процент выполнения привычки.
+     */
+    private int executionPercentage;
+
+    /**
+     * Конструктор для создания объекта DTO на основе сущности {@link Habit}.
+     *
+     * @param habit объект {@link Habit}, из которого будут извлечены данные
+     */
     public HabitDTO(Habit habit) {
         this.id = habit.getId();
         this.name = habit.getName();
         this.description = habit.getDescription();
         this.frequency = habit.getFrequency();
         this.createdDate = habit.getCreatedDate();
-        this.status = habit.getStatus();
-        this.executionPeriod = habit.getExecutionPeriod();
         this.startDate = habit.getStartDate();
         this.endDate = habit.getEndDate();
+        this.executionPeriod = habit.getExecutionPeriod();
+        this.status = habit.getStatus();
+        this.streak = 0;
+        this.executionPercentage = 0;
     }
 
-    // Конструктор для создания DTO на основе данных из ResultSet
+    /**
+     * Конструктор для создания объекта DTO на основе данных из {@link ResultSet}.
+     *
+     * @param resultSet объект {@link ResultSet}, содержащий данные из базы данных
+     * @throws SQLException если возникает ошибка при извлечении данных из {@link ResultSet}
+     */
     public HabitDTO(ResultSet resultSet) throws SQLException {
         this.id = resultSet.getLong("id");
+        this.userId = resultSet.getLong("user_id");
         this.name = resultSet.getString("habit_name");
         this.description = resultSet.getString("description");
         this.frequency = HabitFrequency.valueOf(resultSet.getString("frequency").toUpperCase());
-        this.createdDate = resultSet.getTimestamp("created_date").toLocalDateTime();
-        this.status = HabitStatus.valueOf(resultSet.getString("status").toUpperCase());
+        this.createdDate = resultSet.getTimestamp("created_date").toLocalDateTime().toLocalDate();
+        this.startDate = resultSet.getTimestamp("start_date").toLocalDateTime().toLocalDate();
+        this.endDate = resultSet.getTimestamp("end_date").toLocalDateTime().toLocalDate();
         this.executionPeriod = HabitExecutionPeriod.valueOf(resultSet.getString("execution_period").toUpperCase());
-        this.startDate = resultSet.getTimestamp("start_date").toLocalDateTime();
-        this.endDate = resultSet.getTimestamp("end_date").toLocalDateTime();
+        this.status = HabitStatus.valueOf(resultSet.getString("status").toUpperCase());
+        this.streak = resultSet.getInt("streak");
+        this.executionPercentage = resultSet.getInt("execution_percentage");
     }
+
+    // Геттеры и сеттеры
 
     public long getId() {
         return id;
@@ -55,6 +136,14 @@ public class HabitDTO {
 
     public void setId(long id) {
         this.id = id;
+    }
+
+    public long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(long userId) {
+        this.userId = userId;
     }
 
     public String getName() {
@@ -81,20 +170,42 @@ public class HabitDTO {
         this.frequency = frequency;
     }
 
-    public LocalDateTime getCreatedDate() {
+    public LocalDate getCreatedDate() {
         return createdDate;
     }
 
-    public void setCreatedDate(LocalDateTime createdDate) {
+    public void setCreatedDate(LocalDate createdDate) {
         this.createdDate = createdDate;
     }
 
-    public HabitStatus getStatus() {
-        return status;
+    public LocalDate getStartDate() {
+        return startDate;
     }
 
-    public void setStatus(HabitStatus status) {
-        this.status = status;
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+        calculateEndDate(this.startDate, this.executionPeriod);
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    /**
+     * Метод для расчета даты окончания привычки на основе периода выполнения.
+     *
+     * @param date                 дата начала выполнения
+     * @param habitExecutionPeriod период выполнения (например, месяц или год)
+     */
+    public void calculateEndDate(LocalDate date, HabitExecutionPeriod habitExecutionPeriod) {
+        switch (habitExecutionPeriod) {
+            case MONTH -> this.endDate = date.plusMonths(1);
+            case YEAR -> this.endDate = date.plusYears(1);
+        }
     }
 
     public HabitExecutionPeriod getExecutionPeriod() {
@@ -105,31 +216,35 @@ public class HabitDTO {
         this.executionPeriod = executionPeriod;
     }
 
-    public LocalDateTime getStartDate() {
-        return startDate;
+    public HabitStatus getStatus() {
+        return status;
     }
 
-    public void setStartDate(LocalDateTime startDate) {
-        this.startDate = startDate;
+    public void setStatus(HabitStatus status) {
+        this.status = status;
     }
 
-    public LocalDateTime getEndDate() {
-        return endDate;
+    public int getStreak() {
+        return streak;
     }
 
-    public void setEndDate(LocalDateTime endDate) {
-        this.endDate = endDate;
+    public void setStreak(int streak) {
+        this.streak = streak;
     }
 
-    public HabitStatistic getHabitStatistic() {
-        return habitStatistic;
+    public int getExecutionPercentage() {
+        return executionPercentage;
     }
 
-    public void setHabitStatistic(HabitStatistic habitStatistic) {
-        this.habitStatistic = habitStatistic;
+    public void setExecutionPercentage(int executionPercentage) {
+        this.executionPercentage = executionPercentage;
     }
 
-    // Преобразование DTO обратно в сущность Habit
+    /**
+     * Преобразование объекта DTO обратно в сущность {@link Habit}.
+     *
+     * @return объект {@link Habit}, созданный на основе данных DTO
+     */
     public Habit toHabit() {
         Habit habit = new Habit(name, description, frequency, startDate, executionPeriod);
         habit.setId(id);
@@ -137,9 +252,13 @@ public class HabitDTO {
         return habit;
     }
 
-    // Метод для передачи данных в SQL-запрос
+    /**
+     * Преобразует данные DTO в массив для передачи в SQL-запрос.
+     *
+     * @return массив объектов для использования в SQL-запросах
+     */
     public Object[] toSqlParams() {
-        return new Object[]{name, description, frequency.toString().toLowerCase(), startDate, endDate,
-                executionPeriod.toString().toLowerCase(), createdDate, status.toString().toLowerCase()};
+        return new Object[]{userId, name, description, frequency.toString().toLowerCase(), createdDate.atStartOfDay(), startDate.atStartOfDay(), endDate.atStartOfDay(),
+                executionPeriod.toString().toLowerCase(), status.toString().toLowerCase(), streak, executionPercentage};
     }
 }
