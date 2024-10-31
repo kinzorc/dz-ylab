@@ -1,132 +1,202 @@
 package ru.kinzorc.habittracker.infrastructure.repository.jdbc;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import liquibase.Liquibase;
+import liquibase.database.Database;
+import liquibase.database.DatabaseFactory;
+import liquibase.database.jvm.JdbcConnection;
+import liquibase.resource.ClassLoaderResourceAccessor;
+import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import ru.kinzorc.habittracker.application.dto.HabitDTO;
-import ru.kinzorc.habittracker.application.dto.UserDTO;
 import ru.kinzorc.habittracker.core.entities.Habit;
 import ru.kinzorc.habittracker.core.entities.User;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitExecutionPeriod;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
-import ru.kinzorc.habittracker.core.enums.User.UserRole;
-import ru.kinzorc.habittracker.core.enums.User.UserStatusAccount;
-import ru.kinzorc.habittracker.core.exceptions.HabitAlreadyExistsException;
-import ru.kinzorc.habittracker.core.exceptions.HabitNotFoundException;
-import ru.kinzorc.habittracker.infrastructure.repository.utils.JdbcConnector;
+import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
+import ru.kinzorc.habittracker.infrastructure.repository.utils.DatabaseConnector;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class JdbcHabitRepositoryTest {
 
     @Container
-    public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:latest")
+    private static final PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:latest")
             .withDatabaseName("testdb")
             .withUsername("test")
             .withPassword("test");
 
     private JdbcHabitRepository habitRepository;
-    private UserDTO testUser;
 
-    @BeforeEach
-    void setUp() {
-        // Инициализация источника данных
-        JdbcConnector jdbcConnector = new JdbcConnector();
-        habitRepository = new JdbcHabitRepository(jdbcConnector);
+    @BeforeAll
+    public void setup() throws Exception {
+        runLiquibaseMigrations();
 
-        testUser = new UserDTO(new User("testUser", "password123", "testUser@example.com", UserRole.USER));
+        DatabaseConnector databaseConnector = new DatabaseConnector(
+                postgresContainer.getJdbcUrl(),
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword()
+        );
+        habitRepository = new JdbcHabitRepository(databaseConnector);
+
+        User testUser = new User("test", "test", "test@test.com");
         testUser.setId(1L);
-        testUser.setUserStatusAccount(UserStatusAccount.ACTIVE);
-
     }
 
-
-    @Test
-    @DisplayName("Добавление новой привычки для пользователя")
-    void addHabit_success() throws SQLException, HabitAlreadyExistsException {
-        HabitDTO testHabit = new HabitDTO(new Habit("test_habit1", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
-        testHabit.setUserId(testUser.getId());
-
-        habitRepository.addHabit(testUser, testHabit);
-
-        Optional<HabitDTO> savedHabit = habitRepository.findHabitByName(testHabit.getName());
-        assertTrue(savedHabit.isPresent(), "Привычка должна быть добавлена.");
-        assertEquals(testHabit.getName(), savedHabit.get().getName(), "Имена привычек должны совпадать.");
+    private void runLiquibaseMigrations() throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                postgresContainer.getJdbcUrl(),
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword()
+        )) {
+            Database database = DatabaseFactory.getInstance()
+                    .findCorrectDatabaseImplementation(new JdbcConnection(connection));
+            Liquibase liquibase = new Liquibase("db/changelog/db.changelog-master.xml", new ClassLoaderResourceAccessor(), database);
+            liquibase.update("");
+        }
     }
 
     @Test
-    @DisplayName("Попытка добавить уже существующую привычку")
-    void addHabit_habitAlreadyExists() throws SQLException, HabitAlreadyExistsException {
-        HabitDTO testHabit = new HabitDTO(new Habit("test_habit2", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
-        testHabit.setUserId(testUser.getId());
+    @DisplayName("Сохранение привычки")
+    public void testSaveHabit() throws SQLException {
+        Habit habit = new Habit(1, "test habit", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(30));
+        habit.setStatus(HabitStatus.ACTIVE);
 
-        habitRepository.addHabit(testUser, testHabit);
+        habitRepository.save(habit);
 
-        assertThrows(HabitAlreadyExistsException.class, () -> habitRepository.addHabit(testUser, testHabit), "Привычка уже существует.");
+        Optional<Habit> savedHabit = habitRepository.findByName("test habit");
+        assertThat(savedHabit).isPresent();
+        assertThat(savedHabit.get().getDescription()).isEqualTo("test description");
     }
 
     @Test
-    @DisplayName("Удаление привычки несуществующего ID")
-    void deleteHabit_notFound() {
-        assertThrows(HabitNotFoundException.class, () -> habitRepository.deleteHabit(9999L), "Привычка с данным ID не найдена.");
+    @DisplayName("Найти привычку по ID")
+    public void testFindById() throws SQLException {
+        Habit habit = new Habit(1, "find habit", "habit for findById test", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(30));
+        habit.setStatus(HabitStatus.ACTIVE);
+
+        habitRepository.save(habit);
+
+        Optional<Habit> fetchedHabit = habitRepository.findByName("find habit");
+        assertThat(fetchedHabit).isPresent();
+        assertThat(fetchedHabit.get().getDescription()).isEqualTo("habit for findById test");
     }
 
     @Test
     @DisplayName("Обновление привычки")
-    void updateHabit_success() throws SQLException, HabitAlreadyExistsException, HabitNotFoundException {
-        HabitDTO testHabit = new HabitDTO(new Habit("test_habit3", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
-        testHabit.setUserId(testUser.getId());
+    public void testUpdateHabit() throws SQLException {
+        Habit habit = new Habit(1, "habit to update", "initial description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(30));
+        habit.setStatus(HabitStatus.ACTIVE);
 
-        habitRepository.addHabit(testUser, testHabit);
+        habitRepository.save(habit);
 
-        Optional<HabitDTO> testHabitOptional = habitRepository.findHabitByName(testHabit.getName());
+        habit.setDescription("updated description");
+        habitRepository.update(habit);
 
-        assertTrue(testHabitOptional.isPresent(), "Привычка должна существовать в базе данных после добавления.");
-
-        HabitDTO savedHabit = testHabitOptional.get();
-        savedHabit.setDescription("Updated Description");
-        habitRepository.updateHabit(savedHabit);
-
-        Optional<HabitDTO> updatedHabit = habitRepository.findHabitByID(savedHabit.getId());
-
-        assertTrue(updatedHabit.isPresent(), "Обновленная привычка должна быть найдена в базе данных.");
-        assertEquals("Updated Description", updatedHabit.get().getDescription(), "Описание должно быть обновлено.");
+        Optional<Habit> updatedHabit = habitRepository.findByName(habit.getName());
+        assertThat(updatedHabit).isPresent();
+        assertThat(updatedHabit.get().getDescription()).isEqualTo("updated description");
     }
 
     @Test
-    @DisplayName("Поиск привычки по ID")
-    void findHabitByID_success() throws SQLException, HabitAlreadyExistsException, HabitNotFoundException {
-        HabitDTO testHabit = new HabitDTO(new Habit("test_habit4", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
-        testHabit.setUserId(testUser.getId());
+    @DisplayName("Удаление привычки по ID")
+    public void testDeleteHabitById() throws SQLException {
+        Habit habit = new Habit(1, "habit to delete", "description for delete", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(30));
+        habit.setStatus(HabitStatus.ACTIVE);
 
-        habitRepository.addHabit(testUser, testHabit);
+        habitRepository.save(habit);
+        habitRepository.deleteById(habit.getId());
 
-        Optional<HabitDTO> savedHabit = habitRepository.findHabitByName(testHabit.getName());
-        assertTrue(savedHabit.isPresent());
-
-        Optional<HabitDTO> foundHabit = habitRepository.findHabitByID(savedHabit.get().getId());
-        assertTrue(foundHabit.isPresent());
-        assertEquals(testHabit.getName(), foundHabit.get().getName(), "Привычка должна быть найдена по ID.");
+        Optional<Habit> deletedHabit = habitRepository.findById(habit.getId());
+        assertThat(deletedHabit).isEmpty();
     }
 
     @Test
-    @DisplayName("Поиск привычки по имени")
-    void findHabitByName_success() throws SQLException, HabitAlreadyExistsException {
-        HabitDTO testHabit = new HabitDTO(new Habit("test_habit5", "test description", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH));
-        testHabit.setUserId(testUser.getId());
-        habitRepository.addHabit(testUser, testHabit);
-
-        Optional<HabitDTO> foundHabit = habitRepository.findHabitByName(testHabit.getName());
-        assertTrue(foundHabit.isPresent());
-        assertEquals(testHabit.getName(), foundHabit.get().getName(), "Привычка должна быть найдена по имени.");
+    @DisplayName("Возврат пустого Optional при отсутствии привычки с указанным ID")
+    public void testFindByIdThrowsExceptionWhenHabitNotFound() throws SQLException {
+        Optional<Habit> habit = habitRepository.findById(-1L);
+        assertThat(habit).isEmpty();
     }
 
+    @Test
+    @DisplayName("Получение списка выполнений привычки")
+    public void testGetExecutions() throws SQLException {
+        Habit habit = new Habit(1, "habit with executions", "test getExecutions method", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setId(1);
+        habit.setEndDate(LocalDate.now().plusDays(10));
+        habit.setStatus(HabitStatus.ACTIVE);
+
+        habitRepository.save(habit);
+        habitRepository.resetExecutions(habit.getId());
+        habitRepository.markExecution(habit, LocalDate.now());
+
+        List<LocalDate> executions = habitRepository.getExecutions(habit.getId());
+        assertThat(executions).hasSize(1).contains(LocalDate.now());
+    }
+
+    @Test
+    @DisplayName("Сброс выполнений привычки")
+    public void testResetExecutions() throws SQLException {
+        Habit habit = new Habit(1, "habit with executions to reset", "test resetExecutions method", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(10));
+        habit.setStatus(HabitStatus.ACTIVE);
+
+        habitRepository.save(habit);
+        habitRepository.resetExecutions(habit.getId());
+
+        List<LocalDate> executions = habitRepository.getExecutions(habit.getId());
+        assertThat(executions).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Подсчет процента выполнения привычки за период")
+    public void testCalculateExecutionPercentageByPeriod() throws SQLException {
+        habitRepository.deleteAll();
+
+        Habit habit = new Habit(1, "habit with percentage", "description habit with percentage", HabitFrequency.DAILY, LocalDate.now(), HabitExecutionPeriod.MONTH);
+        habit.setEndDate(LocalDate.now().plusDays(4));
+        habit.setStatus(HabitStatus.ACTIVE);
+
+        habitRepository.save(habit);
+
+        Optional<Habit> findHabit = habitRepository.findByName(habit.getName());
+        findHabit.ifPresent(value -> habit.setId(value.getId()));
+
+        habitRepository.markExecution(habit, LocalDate.now());
+        habitRepository.markExecution(habit, LocalDate.now().plusDays(1));
+
+        int percentage = habitRepository.calculateExecutionPercentageByPeriod(habit, habit.getStartDate(), habit.getEndDate());
+        assertThat(percentage).isEqualTo(40);
+
+        habitRepository.markExecution(habit, LocalDate.now().plusDays(2));
+        habitRepository.markExecution(habit, LocalDate.now().plusDays(3));
+        habitRepository.markExecution(habit, LocalDate.now().plusDays(4));
+
+        percentage = habitRepository.calculateExecutionPercentageByPeriod(habit, habit.getStartDate(), habit.getEndDate());
+        assertThat(percentage).isEqualTo(100);
+    }
+
+    @AfterEach
+    public void tearDown() throws SQLException {
+        habitRepository.deleteAll();
+        habitRepository.resetAllExecutions();   // Очистка выполнений
+    }
+
+    @AfterAll
+    public void stopContainer() {
+        postgresContainer.stop();
+    }
 }

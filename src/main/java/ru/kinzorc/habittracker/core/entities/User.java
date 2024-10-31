@@ -60,13 +60,12 @@ public class User {
      * @param username имя пользователя
      * @param password пароль пользователя
      * @param email    электронная почта пользователя
-     * @param userRole роль пользователя, определяется перечислением {@link UserRole}
      */
-    public User(String username, String password, String email, UserRole userRole) {
+    public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
-        this.userRole = userRole;
+        this.userRole = UserRole.USER;
         this.userStatusAccount = UserStatusAccount.ACTIVE;
     }
 

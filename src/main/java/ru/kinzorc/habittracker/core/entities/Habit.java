@@ -5,27 +5,27 @@ import ru.kinzorc.habittracker.core.enums.Habit.HabitFrequency;
 import ru.kinzorc.habittracker.core.enums.Habit.HabitStatus;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Класс представляет привычку пользователя в системе.
+ * Класс представляет сущность привычки пользователя в системе отслеживания привычек.
  * <p>
- * Привычка включает уникальный идентификатор, имя, описание, частоту выполнения и статус активности.
- * Привычка может иметь различные периоды выполнения (например, месяц или год) и поддерживает
- * отслеживание даты начала и окончания выполнения.
+ * Привычка содержит уникальный идентификатор, имя, описание, частоту выполнения, статус,
+ * период выполнения и даты, связанные с жизненным циклом привычки (создания, начала и окончания).
+ * Кроме того, хранится список дат выполнения для отслеживания прогресса пользователя.
  * </p>
  */
 public class Habit {
 
     /**
-     * Дата создания привычки.
-     * <p>
-     * Определяется автоматически при создании привычки и не может быть изменена.
-     * </p>
+     * Уникальный идентификатор привычки.
      */
-    private final LocalDate createdDate;
+    private long id;
+
+    /**
+     * Уникальный идентификатор пользователя.
+     */
+    private long userId;
 
     /**
      * Имя привычки.
@@ -38,60 +38,61 @@ public class Habit {
     private String description;
 
     /**
-     * Частота выполнения привычки.
-     * <p>
-     * Определяется значениями перечисления {@link HabitFrequency}, которое указывает, как часто должна выполняться привычка.
-     * </p>
+     * Частота выполнения привычки, задается значением {@link HabitFrequency}.
      */
     private HabitFrequency frequency;
+
     /**
-     * Уникальный идентификатор привычки (ID).
+     * Дата создания привычки, задается при инициализации.
      */
-    private long id;
+    private LocalDate createdDate;
+
     /**
      * Дата начала выполнения привычки.
      */
     private LocalDate startDate;
 
     /**
-     * Дата окончания выполнения привычки.
+     * Дата окончания выполнения привычки, рассчитанная на основе периода выполнения.
      */
     private LocalDate endDate;
 
     /**
-     * Период выполнения привычки (например, месяц или год).
+     * Период выполнения привычки, задается значением {@link HabitExecutionPeriod}.
      */
     private HabitExecutionPeriod executionPeriod;
 
     /**
-     * Статус привычки.
-     * <p>
-     * Указывает, активна привычка или нет. Определяется значениями перечисления {@link HabitStatus}.
-     * </p>
+     * Статус привычки (активна или завершена), задается значением {@link HabitStatus}.
      */
     private HabitStatus status;
 
     /**
-     * Список дат, когда привычка была выполнена.
-     * <p>
-     * Хранит все даты выполнения привычки, включая как успешные стрики, так и пропуски.
-     * </p>
+     * Стрик (серия подряд выполненных дней).
      */
-    private List<LocalDate> executions;
+    private int streak;
+
+    /**
+     * Процент выполнения привычки.
+     */
+    private int executionPercentage;
 
     /**
      * Конструктор для создания новой привычки.
      * <p>
-     * При создании новой привычки автоматически задаются идентификатор, статус, дата создания и вычисляется дата окончания выполнения.
+     * Поля даты создания, статуса и списка выполнений инициализируются по умолчанию.
+     * Дата окончания рассчитывается на основе даты начала и периода выполнения.
      * </p>
      *
+     * @param userId         уникальный идентификатор пользователя
      * @param name            имя привычки
      * @param description     описание привычки
-     * @param frequency       частота выполнения, определяется перечислением {@link HabitFrequency}
+     * @param frequency       частота выполнения (ежедневно, еженедельно), определяется перечислением {@link HabitFrequency}
      * @param startDate       дата начала выполнения привычки
-     * @param executionPeriod период выполнения привычки, определяется перечислением {@link HabitExecutionPeriod}
+     * @param executionPeriod период выполнения привычки (например, месяц или год), определяется перечислением {@link HabitExecutionPeriod}
      */
-    public Habit(String name, String description, HabitFrequency frequency, LocalDate startDate, HabitExecutionPeriod executionPeriod) {
+    public Habit(long userId, String name, String description, HabitFrequency frequency, LocalDate startDate, HabitExecutionPeriod executionPeriod) {
+        this.userId = userId;
         this.name = name;
         this.description = description;
         this.frequency = frequency;
@@ -99,7 +100,8 @@ public class Habit {
         this.startDate = startDate;
         this.executionPeriod = executionPeriod;
         this.status = HabitStatus.ACTIVE;
-        this.executions = new ArrayList<>();
+        this.streak = 0;
+        this.executionPercentage = 0;
 
         calculateEndDate(startDate, executionPeriod);
     }
@@ -110,6 +112,14 @@ public class Habit {
 
     public void setId(long id) {
         this.id = id;
+    }
+
+    public long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(long userId) {
+        this.userId = userId;
     }
 
     public String getName() {
@@ -140,6 +150,10 @@ public class Habit {
         return createdDate;
     }
 
+    public void setCreatedDate(LocalDate createdDate) {
+        this.createdDate = createdDate;
+    }
+
     public LocalDate getStartDate() {
         return startDate;
     }
@@ -157,6 +171,16 @@ public class Habit {
         this.endDate = endDate;
     }
 
+    /**
+     * Рассчитывает дату окончания выполнения привычки на основе начальной даты и периода выполнения.
+     * <p>
+     * Использует значения {@link HabitExecutionPeriod#MONTH} и {@link HabitExecutionPeriod#YEAR}
+     * для добавления одного месяца или года к дате начала.
+     * </p>
+     *
+     * @param date                 начальная дата
+     * @param habitExecutionPeriod период выполнения привычки
+     */
     public void calculateEndDate(LocalDate date, HabitExecutionPeriod habitExecutionPeriod) {
         switch (habitExecutionPeriod) {
             case MONTH -> this.endDate = date.plusMonths(1);
@@ -181,12 +205,20 @@ public class Habit {
         this.status = status;
     }
 
-    public List<LocalDate> getExecutions() {
-        return this.executions;
+    public int getStreak() {
+        return streak;
     }
 
-    public void setExecutions(List<LocalDate> executions) {
-        this.executions = executions;
+    public void setStreak(int streak) {
+        this.streak = streak;
+    }
+
+    public int getExecutionPercentage() {
+        return executionPercentage;
+    }
+
+    public void setExecutionPercentage(int execution_percentage) {
+        this.executionPercentage = execution_percentage;
     }
 
     /**

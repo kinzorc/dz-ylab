@@ -1,69 +1,63 @@
 package ru.kinzorc.habittracker.infrastructure.repository.jdbc;
 
-import ru.kinzorc.habittracker.application.dto.HabitDTO;
-import ru.kinzorc.habittracker.application.dto.UserDTO;
-import ru.kinzorc.habittracker.core.exceptions.HabitAlreadyExistsException;
-import ru.kinzorc.habittracker.core.exceptions.HabitNotFoundException;
-import ru.kinzorc.habittracker.core.exceptions.UserNotFoundException;
+import ru.kinzorc.habittracker.application.mappers.HabitMapper;
+import ru.kinzorc.habittracker.core.entities.Habit;
+import ru.kinzorc.habittracker.core.entities.User;
 import ru.kinzorc.habittracker.core.repository.HabitRepository;
-import ru.kinzorc.habittracker.infrastructure.repository.utils.JdbcConnector;
+import ru.kinzorc.habittracker.infrastructure.repository.queries.HabitSQLStatements;
+import ru.kinzorc.habittracker.infrastructure.repository.utils.DatabaseConnector;
 
+import java.sql.Date;
 import java.sql.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
- * Реализация интерфейса {@link HabitRepository} для работы с привычками с использованием JDBC.
+ * Реализация интерфейса {@link HabitRepository} для работы с привычками через JDBC.
  * <p>
- * Этот класс взаимодействует с базой данных PostgreSQL через JDBC и выполняет операции CRUD (создание, чтение, обновление, удаление)
- * для привычек и их выполнения.
+ * Этот класс взаимодействует с базой данных с помощью JDBC и предоставляет CRUD-операции
+ * для привычек и управления их выполнениями, стриками и статистикой. В классе реализованы методы
+ * для добавления, обновления, удаления, поиска привычек, а также для расчёта и сброса их статистики.
  * </p>
  */
 public class JdbcHabitRepository implements HabitRepository {
 
-    private final JdbcConnector jdbcConnector;
+    private final DatabaseConnector databaseConnector;
 
     /**
-     * Конструктор для создания экземпляра {@code JdbcHabitRepository} с заданным объектом {@link JdbcConnector}.
+     * Конструктор для создания экземпляра {@code JdbcHabitRepository}.
      *
-     * @param jdbcConnector объект {@link JdbcConnector}, предоставляющий соединение с базой данных
+     * @param databaseConnector объект {@link DatabaseConnector} для управления соединениями с базой данных
      */
-    public JdbcHabitRepository(JdbcConnector jdbcConnector) {
-        this.jdbcConnector = jdbcConnector;
+    public JdbcHabitRepository(DatabaseConnector databaseConnector) {
+        this.databaseConnector = databaseConnector;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void addHabit(UserDTO user, HabitDTO habit) throws HabitAlreadyExistsException, SQLException {
-        String query = "INSERT INTO app_schema.habits (user_id, habit_name, description, frequency, created_date, start_date, end_date, " +
-                "execution_period, status, streak, execution_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    public void save(Habit habit) throws SQLException {
 
-        // Проверка на существование привычки у пользователя
-        if (isHabitExistForUser(user.getId(), habit.getName())) {
-            throw new HabitAlreadyExistsException("Привычка с таким именем уже существует.");
-        }
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.ADD_HABIT)) {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, user.getId());
+            statement.setLong(1, habit.getUserId());
             statement.setString(2, habit.getName());
             statement.setString(3, habit.getDescription());
             statement.setString(4, habit.getFrequency().toString().toLowerCase());
-            statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
-            statement.setTimestamp(6, Timestamp.valueOf(LocalDateTime.of(habit.getStartDate(), LocalTime.MIDNIGHT)));
-            statement.setTimestamp(7, Timestamp.valueOf(LocalDateTime.of(habit.getEndDate(), LocalTime.MAX)));
+            statement.setDate(5, Date.valueOf(LocalDate.now()));
+            statement.setDate(6, Date.valueOf(habit.getStartDate()));
+            statement.setDate(7, Date.valueOf(habit.getEndDate()));
             statement.setString(8, habit.getExecutionPeriod().toString().toLowerCase());
             statement.setString(9, habit.getStatus().toString().toLowerCase());
             statement.setInt(10, 0);
             statement.setInt(11, 0);
 
             statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при создании привычки: " + e.getMessage());
         }
     }
 
@@ -71,109 +65,42 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void deleteHabit(long habitId) throws HabitNotFoundException, SQLException {
-        String query = "DELETE FROM app_schema.habits WHERE id = ?";
+    public void update(Habit habit) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        Optional<Habit> existingHabit = findByName(habit.getName());
+        boolean needsResetStreak = false;
+        int currentStreak = 0;
 
-            statement.setLong(1, habitId);
+        if (existingHabit.isPresent()) {
+            needsResetStreak = !existingHabit.get().getStartDate().isEqual(habit.getStartDate())
+                    || !(existingHabit.get().getStatus() == habit.getStatus())
+                    || !(existingHabit.get().getExecutionPeriod() == habit.getExecutionPeriod());
 
-            resetExecutions(habitId);
-            int rowsDeleted = statement.executeUpdate();
-            if (rowsDeleted == 0) {
-                throw new HabitNotFoundException("Привычка с данным ID не найдена.");
-            }
-
+            currentStreak = existingHabit.get().getStreak();
+            habit.setId(existingHabit.get().getId());
         }
-    }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void deleteAllHabitsForUser(UserDTO user) throws HabitNotFoundException, SQLException {
-        String query = "DELETE FROM app_schema.habits WHERE user_id = ?";
+        int executionPercentage = calculateExecutionPercentageByPeriod(habit, habit.getStartDate(), habit.getEndDate());
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, user.getId());
-
-            int rowsDeleted = statement.executeUpdate();
-            if (rowsDeleted == 0) {
-                throw new HabitNotFoundException("Привычка с данным ID не найдена.");
-            }
-
-            resetAllExecutionsForUser(user);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void deleteAllHabit(UserDTO user) throws HabitNotFoundException, SQLException {
-        String query = "DELETE FROM app_schema.habits WHERE user_id = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, user.getId());
-
-            int rowsAffected = statement.executeUpdate();
-            resetExecutionsAllHabits();
-            if (rowsAffected == 0) {
-                throw new HabitNotFoundException("Привычки для данного пользователя не найдены.");
-            }
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateHabit(HabitDTO habit) throws HabitNotFoundException, SQLException {
-        String query = "UPDATE app_schema.habits SET habit_name = ?, description = ?, frequency = ?, start_date = ?, end_date = ?, execution_period = ?, status = ? WHERE id = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.UPDATE_HABIT)) {
 
             statement.setString(1, habit.getName());
             statement.setString(2, habit.getDescription());
             statement.setString(3, habit.getFrequency().toString().toLowerCase());
-            statement.setTimestamp(4, Timestamp.valueOf(LocalDateTime.of(habit.getStartDate(), LocalTime.MIDNIGHT)));
-            statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.of(habit.getEndDate(), LocalTime.MAX)));
+            statement.setDate(4, Date.valueOf(habit.getStartDate()));
+            statement.setDate(5, Date.valueOf(habit.getEndDate()));
             statement.setString(6, habit.getExecutionPeriod().toString().toLowerCase());
             statement.setString(7, habit.getStatus().toString().toLowerCase());
-            statement.setLong(8, habit.getId());
 
-            int rowsAffected = statement.executeUpdate();
-            if (rowsAffected == 0) {
-                throw new HabitNotFoundException("Привычка с данным ID не найдена.");
-            }
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void markExecution(HabitDTO habit, LocalDateTime executionDate) throws SQLException {
-        String query = "INSERT INTO app_schema.habit_executions (habit_id, date) VALUES (?, ?)";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, habit.getId());
-            statement.setTimestamp(2, Timestamp.valueOf(executionDate));
+            statement.setInt(8, !needsResetStreak ? currentStreak : 0);
+            statement.setInt(9, executionPercentage);
+            statement.setLong(10, habit.getId());
 
             statement.executeUpdate();
 
-            calculateStreak(habit, executionDate);
-            calculateExecutionPercentage(habit,
-                    LocalDateTime.of(habit.getStartDate(), LocalTime.MIDNIGHT),
-                    LocalDateTime.of(habit.getEndDate(), LocalTime.MAX));
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при обновлении привычки " + habit.getName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -181,24 +108,95 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public List<LocalDate> getExecutions(long habitId) throws HabitNotFoundException, SQLException {
-        String query = "SELECT date FROM app_schema.habit_executions WHERE habit_id = ?";
+    public void deleteAll() throws SQLException {
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.DELETE_ALL_HABIT)) {
+
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении всех привычек: " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void deleteById(Long habitId) throws SQLException {
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.DELETE_HABIT)) {
+
+            statement.setLong(1, habitId);
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении привычки с ID " + habitId + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void deleteAllForUser(User user) throws SQLException {
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.DELETE_ALL_HABITS_FOR_USER)) {
+
+            statement.setLong(1, user.getId());
+            statement.executeUpdate();
+
+            resetAllExecutionsForUser(user);
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при удалении привычек для пользователя " + user.getUserName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void markExecution(Habit habit, LocalDate executionDate) throws SQLException {
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.HABIT_MARK_EXECUTION)) {
+
+            statement.setLong(1, habit.getId());
+            statement.setDate(2, Date.valueOf(executionDate));
+
+            statement.executeUpdate();
+
+            updateStreak(habit, executionDate);
+            calculateExecutionPercentageByPeriod(habit, habit.getStartDate(), habit.getEndDate());
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка отметки выполнения привычки: " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<LocalDate> getExecutions(long habitId) throws SQLException {
+
         List<LocalDate> executions = new ArrayList<>();
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.QUERY_GET_EXECUTIONS)) {
 
             statement.setLong(1, habitId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    executions.add(resultSet.getTimestamp("date").toLocalDateTime().toLocalDate());
+                    executions.add(resultSet.getDate("date").toLocalDate());
                 }
             }
-        }
 
-        if (executions.isEmpty()) {
-            throw new HabitNotFoundException("Привычка с данным ID не имеет выполнений.");
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка получения списка выполнения привычек: " + e.getMessage());
         }
 
         return executions;
@@ -208,18 +206,17 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void resetExecutions(long habitId) throws HabitNotFoundException, SQLException {
-        String query = "DELETE FROM app_schema.habit_executions WHERE habit_id = ?";
+    public void resetExecutions(long habitId) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.RESET_EXECUTIONS_FOR_HABIT)) {
 
             statement.setLong(1, habitId);
 
-            int rowsAffected = statement.executeUpdate();
-            if (rowsAffected == 0) {
-                throw new HabitNotFoundException("Привычка с данным ID не найдена.");
-            }
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при сборе выполнений привычек: " + e.getMessage());
         }
     }
 
@@ -227,18 +224,17 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void resetAllExecutionsForUser(UserDTO user) throws HabitNotFoundException, SQLException {
-        String query = "DELETE FROM app_schema.habit_executions WHERE user_id = ?";
+    public void resetAllExecutionsForUser(User user) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.RESET_ALL_EXECUTIONS_FOR_USER)) {
 
             statement.setLong(1, user.getId());
 
-            int rowsAffected = statement.executeUpdate();
-            if (rowsAffected == 0) {
-                throw new HabitNotFoundException("Выполнения для привычки или привычек не найдены");
-            }
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при сбросе всех выполнений всех привычек для пользователя " + user.getUserName() + ": " + e.getMessage());
         }
     }
 
@@ -246,13 +242,14 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void resetExecutionsAllHabits() throws SQLException {
-        String query = "DELETE FROM app_schema.habit_executions";
+    public void resetAllExecutions() throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.RESET_EXECUTIONS_ALL_HABITS)) {
 
             statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при сборе выполнения всех привычек в базе данных: " + e.getMessage());
         }
     }
 
@@ -260,26 +257,25 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public Map<LocalDate, Integer> getStatisticByPeriod(HabitDTO habit, LocalDateTime startPeriodDate, LocalDateTime endPeriodDate) throws HabitNotFoundException, SQLException {
-        String query = "SELECT DATE(date) as execution_date FROM app_schema.habit_executions WHERE habit_id = ?";
+    public Map<LocalDate, Integer> getStatisticByPeriod(Habit habit, LocalDate startPeriodDate, LocalDate endPeriodDate)
+            throws SQLException {
+
         Map<LocalDate, Integer> statistics = new HashMap<>();
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.GET_STATISTIC_BY_PERIOD)) {
 
             statement.setLong(1, habit.getId());
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     LocalDate executionDate = resultSet.getDate("execution_date").toLocalDate();
-                    statistics.put(executionDate, calculateExecutionPercentage(habit,
-                            LocalDateTime.of(habit.getStartDate(), LocalTime.MIN), LocalDateTime.of(executionDate, LocalTime.MAX)));
+                    statistics.put(executionDate, calculateExecutionPercentageByPeriod(habit,
+                            habit.getStartDate(), executionDate));
                 }
             }
-        }
-
-        if (statistics.isEmpty()) {
-            throw new HabitNotFoundException("Привычка с данным ID не имеет статистики за указанный период.");
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении статистики за переданный период: " + e.getMessage());
         }
 
         return statistics;
@@ -289,13 +285,15 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public void resetStatistics(long habitId, boolean resetExecutions, boolean resetStreaks) throws HabitNotFoundException, SQLException {
-        if (resetExecutions) {
-            resetExecutions(habitId);
-        }
+    public void resetStatistics(long habitId, boolean resetExecutions, boolean resetStreaks) throws SQLException {
+        try {
+            if (resetExecutions)
+                resetExecutions(habitId);
 
-        if (resetStreaks) {
-            resetStreaks(habitId);
+            if (resetStreaks)
+                resetStreaks(habitId);
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при выполнении запросов на сброс стрика или выполнения привычки: " + e.getMessage());
         }
     }
 
@@ -303,20 +301,16 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public int calculateExecutionPercentage(HabitDTO habit, LocalDateTime startPeriodDate, LocalDateTime endPeriodDate) throws SQLException {
-        String query = "SELECT h.frequency, h.execution_period, COUNT(he.habit_id) AS execution_count "
-                + "FROM app_schema.habits h LEFT JOIN app_schema.habit_executions he ON h.id = he.habit_id "
-                + "WHERE h.id = ? "
-                + "GROUP BY h.frequency, h.execution_period";
+    public int calculateExecutionPercentageByPeriod(Habit habit, LocalDate startPeriodDate, LocalDate endPeriodDate) throws SQLException {
 
-        if (startPeriodDate.toLocalDate().isBefore(habit.getStartDate()))
-            startPeriodDate = habit.getStartDate().atStartOfDay();
+        if (startPeriodDate.isBefore(habit.getStartDate()))
+            startPeriodDate = habit.getStartDate();
 
-        if (endPeriodDate.toLocalDate().isAfter(habit.getEndDate()))
-            endPeriodDate = habit.getEndDate().atStartOfDay();
+        if (endPeriodDate.isAfter(habit.getEndDate()))
+            endPeriodDate = habit.getEndDate();
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.QUERY_CALCULATE_EXECUTION_PERCENTAGE)) {
 
             statement.setLong(1, habit.getId());
 
@@ -330,9 +324,9 @@ public class JdbcHabitRepository implements HabitRepository {
 
                     if (executionPeriod.equals("month") || executionPeriod.equals("year")) {
                         if (frequency.equals("daily")) {
-                            period = ChronoUnit.DAYS.between(startPeriodDate, endPeriodDate);
+                            period = ChronoUnit.DAYS.between(startPeriodDate, endPeriodDate) + 1;
                         } else if (frequency.equals("weekly")) {
-                            period = ChronoUnit.WEEKS.between(startPeriodDate, endPeriodDate);
+                            period = ChronoUnit.WEEKS.between(startPeriodDate, endPeriodDate) + 1;
                         }
                     }
 
@@ -343,6 +337,8 @@ public class JdbcHabitRepository implements HabitRepository {
                     }
                 }
             }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при подсчете процента успешного выполнения привычки: " + e.getMessage());
         }
 
         return 0;
@@ -352,25 +348,20 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public int calculateStreak(HabitDTO habit, LocalDateTime newExecutionDate) throws SQLException {
+    public int updateStreak(Habit habit, LocalDate newExecutionDate) throws SQLException {
 
         int newStreak = 0;
 
-        // Получаем последнюю дату выполнения привычки
-        String queryLastExecution = "SELECT MAX(date) as last_execution_date FROM app_schema.habit_executions WHERE habit_id = ?";
-        String updateStreakQuery = "UPDATE app_schema.habits SET streak = ? WHERE id = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statementLastExecution = connection.prepareStatement(queryLastExecution);
-             PreparedStatement statementCalculateStreak = connection.prepareStatement(updateStreakQuery)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statementLastExecution = connection.prepareStatement(HabitSQLStatements.QUERY_LAST_EXECUTION);
+             PreparedStatement statementCalculateStreak = connection.prepareStatement(HabitSQLStatements.QUERY_UPDATE_STREAK)) {
 
             statementLastExecution.setLong(1, habit.getId());
 
             try (ResultSet resultSet = statementLastExecution.executeQuery()) {
                 if (resultSet.next()) {
-                    LocalDateTime lastExecutionDate = resultSet.getTimestamp("last_execution_date").toLocalDateTime();
+                    LocalDate lastExecutionDate = resultSet.getDate("last_execution_date").toLocalDate();
 
-                    // Рассчитываем разницу между последней датой выполнения и новой датой выполнения
                     long difference;
                     if (habit.getFrequency().toString().equalsIgnoreCase("daily")) {
                         difference = ChronoUnit.DAYS.between(lastExecutionDate, newExecutionDate);
@@ -380,16 +371,13 @@ public class JdbcHabitRepository implements HabitRepository {
                         throw new IllegalArgumentException("Неверная частота выполнения: " + habit.getFrequency());
                     }
 
-                    // Если разница в днях или неделях равна 1, увеличиваем стрик, иначе сбрасываем
                     if (difference == 1) {
-                        // Увеличиваем текущий стрик
                         int currentStreak = getCurrentStreak(habit.getId());
                         newStreak = currentStreak + 1;
 
-                        // Обновляем стрик в таблице habits
                         statementCalculateStreak.setInt(1, newStreak);
                     } else {
-                        // Сбрасываем стрик до 1
+                        newStreak = 1;
                         statementCalculateStreak.setInt(1, 1);
                     }
 
@@ -397,17 +385,28 @@ public class JdbcHabitRepository implements HabitRepository {
                     statementCalculateStreak.executeUpdate();
                 }
             }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении данных из базы данных: " + e.getMessage());
         }
 
         return newStreak;
     }
 
-    // Метод для получения текущего стрика из таблицы habits
+    /**
+     * Получает текущее значение стрика для указанной привычки.
+     * <p>
+     * Выполняет запрос к базе данных для получения значения стрика (серии успешных выполнений) привычки с указанным идентификатором.
+     * Если стрик не найден, возвращает значение по умолчанию 0.
+     * </p>
+     *
+     * @param habitId уникальный идентификатор привычки, для которой требуется получить значение стрика
+     * @return текущее значение стрика для привычки, или 0, если запись стрика отсутствует
+     * @throws SQLException если возникает ошибка при выполнении запроса к базе данных
+     */
     private int getCurrentStreak(long habitId) throws SQLException {
-        String query = "SELECT streak FROM app_schema.habits WHERE id = ?";
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.QUERY_CURRENT_STREAK)) {
             statement.setLong(1, habitId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -415,8 +414,10 @@ public class JdbcHabitRepository implements HabitRepository {
                     return resultSet.getInt("streak");
                 }
             }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении текущего стрика привычки: " + e.getMessage());
         }
-        // Если стрик не найден, возвращаем 0 по умолчанию
+
         return 0;
     }
 
@@ -424,16 +425,16 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public List<HabitDTO> findAllHabits() throws SQLException {
-        String query = "SELECT * FROM app_schema.habits";
-        List<HabitDTO> habits = new ArrayList<>();
+    public List<Habit> findAll() throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query);
+        List<Habit> habits = new ArrayList<>();
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.FIND_ALL_HABITS);
              ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
-                habits.add(new HabitDTO(resultSet));
+                habits.add(HabitMapper.INSTANCE.toEntity(HabitMapper.INSTANCE.fromResultSetToDTO(resultSet)));
             }
         } catch (SQLException e) {
             throw new SQLException("Ошибка получения информации по привычкам: " + e.getMessage());
@@ -446,25 +447,23 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public Optional<HabitDTO> findHabitByID(long habitId) throws HabitNotFoundException, SQLException {
-        String query = "SELECT * FROM app_schema.habits WHERE id = ?";
-        HabitDTO habit = null;
+    public Optional<Habit> findById(Long habitId) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        Habit habit = null;
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.FIND_HABIT_BY_ID)) {
 
             statement.setLong(1, habitId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    habit = new HabitDTO(resultSet);
+                    habit = HabitMapper.INSTANCE.toEntity(HabitMapper.INSTANCE.fromResultSetToDTO(resultSet));
                     habit.setId(resultSet.getLong("id"));
                 }
-            } catch (SQLException e) {
-                throw new HabitNotFoundException("Ошибка при поиске привычки" + e.getMessage());
             }
-        } catch (HabitNotFoundException e) {
-            throw new HabitNotFoundException("Привычка не найдена!" + e.getMessage());
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении привычки из базы данных, возможна привычка не найдена: " + e.getMessage());
         }
 
         return Optional.ofNullable(habit);
@@ -474,21 +473,23 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public Optional<HabitDTO> findHabitByName(String habitName) throws SQLException {
-        String query = "SELECT * FROM app_schema.habits WHERE habit_name = ?";
-        HabitDTO habit = null;
+    public Optional<Habit> findByName(String habitName) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        Habit habit = null;
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.FIND_HABIT_BY_NAME)) {
 
             statement.setString(1, habitName);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    habit = new HabitDTO(resultSet);
+                    habit = HabitMapper.INSTANCE.toEntity(HabitMapper.INSTANCE.fromResultSetToDTO(resultSet));
                     habit.setId(resultSet.getLong("id"));
                 }
             }
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении привычки из базы данных, возможна привычка не найдена: " + e.getMessage());
         }
 
         return Optional.ofNullable(habit);
@@ -498,40 +499,42 @@ public class JdbcHabitRepository implements HabitRepository {
      * {@inheritDoc}
      */
     @Override
-    public List<HabitDTO> findHabitByUser(UserDTO user) throws UserNotFoundException, SQLException {
-        String query = "SELECT * FROM app_schema.habits WHERE user_id = ?";
+    public List<Habit> findHabitsByUser(User user) throws SQLException {
 
-        List<HabitDTO> habits = new ArrayList<>();
+        List<Habit> habits = new ArrayList<>();
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.FIND_HABITS_BY_USER)) {
 
-            // Устанавливаем идентификатор пользователя
             statement.setLong(1, user.getId());
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    HabitDTO habitDTO = new HabitDTO(resultSet);
-                    habits.add(habitDTO);
+                    habits.add(HabitMapper.INSTANCE.toEntity(HabitMapper.INSTANCE.fromResultSetToDTO(resultSet)));
                 }
             }
         } catch (SQLException e) {
             throw new SQLException("Ошибка при запросе привычек пользователя: " + e.getMessage());
         }
 
-        if (habits.isEmpty()) {
-            throw new UserNotFoundException("У пользователя нет добавленных привычек.");
-        }
-
         return habits;
     }
 
-    // Проверка существования привычки у пользователя
-    private boolean isHabitExistForUser(long userId, String habitName) throws SQLException {
-        String query = "SELECT COUNT(*) FROM app_schema.habits WHERE user_id = ? AND habit_name = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+    /**
+     * Проверяет существование привычки с заданным именем для указанного пользователя.
+     * <p>
+     * Выполняет запрос к базе данных для определения, существует ли привычка с указанным именем у пользователя с заданным идентификатором.
+     * Возвращает {@code true}, если привычка существует, иначе — {@code false}.
+     * </p>
+     *
+     * @param userId    уникальный идентификатор пользователя
+     * @param habitName имя привычки, которую нужно проверить
+     * @return {@code true}, если привычка с данным именем уже существует у пользователя, иначе {@code false}
+     * @throws SQLException если возникает ошибка при выполнении запроса к базе данных
+     */
+    public boolean isHabitExistForUser(long userId, String habitName) throws SQLException {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.QUERY_IS_HABIT_FOR_EXIST)) {
 
             statement.setLong(1, userId);
             statement.setString(2, habitName);
@@ -541,20 +544,30 @@ public class JdbcHabitRepository implements HabitRepository {
                     return resultSet.getInt(1) > 0;
                 }
             }
+        } catch (SQLException e) {
+            throw new SQLException("Пользователь ID " + userId + " и именем привычки " + habitName + " не найдены: " + e.getMessage());
         }
 
         return false;
     }
 
-    // Сброс стриков для привычки
+    /**
+     * Сбрасывает значение стрика для привычки.
+     * <p>
+     * Выполняет запрос к базе данных, устанавливая значение стрика привычки на 0. Используется для обновления привычки при изменении условий отслеживания.
+     * </p>
+     *
+     * @param id уникальный идентификатор привычки, для которой необходимо сбросить стрик
+     * @throws SQLException если возникает ошибка при выполнении запроса к базе данных
+     */
     private void resetStreaks(long id) throws SQLException {
-        String query = "UPDATE app_schema.habits SET streak = 0 WHERE id = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(HabitSQLStatements.QUERY_RESET_STEAK)) {
 
             statement.setLong(1, id);
             statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при сбросе стрика привычки с ID " + id + ": " + e.getMessage());
         }
     }
 }

@@ -1,0 +1,28 @@
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="create-user-sessions-table" author="kinzorc">
+        <createTable tableName="user_sessions" schemaName="app_schema">
+            <column name="session_id" type="VARCHAR(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_activity" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="user_sessions"
+                                 baseColumnNames="user_id"
+                                 baseTableSchemaName="app_schema"
+                                 referencedTableName="users"
+                                 referencedColumnNames="id"
+                                 referencedTableSchemaName="app_schema"
+                                 constraintName="fk_user_sessions_user_id_id_users"/>
+    </changeSet>
+
+</databaseChangeLog>

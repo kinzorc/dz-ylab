@@ -1,6 +1,6 @@
 package ru.kinzorc.habittracker.infrastructure.repository.email;
 
-import ru.kinzorc.habittracker.application.service.EmailService;
+import ru.kinzorc.habittracker.application.services.EmailService;
 
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
@@ -20,13 +20,23 @@ public class MailSender implements EmailService {
     /**
      * Свойства для конфигурации почтового сервиса, загружаемые из файла {@code application.properties}.
      */
-    private static final Properties MAIL_PROPERTIES = new Properties();
+    private final Properties MAIL_PROPERTIES = new Properties();
+
+    private Session session;
 
     /**
      * Конструктор по умолчанию, который загружает свойства для работы с почтовым сервером.
      */
     public MailSender() {
         loadProperties();
+    }
+
+    /**
+     * Конструктор с параметром сессии, который загружает свойства для работы с почтовым сервером.
+     */
+    public MailSender(Session session) {
+        this.session = session;
+        loadProperties(); // Загружаем почтовые свойства для использования в методе sendEmail
     }
 
     /**
@@ -51,7 +61,7 @@ public class MailSender implements EmailService {
             throw new IllegalArgumentException("Отсутствуют параметры для email аутентификации.");
         }
 
-        Session session = Session.getInstance(MAIL_PROPERTIES, new Authenticator() {
+        session = Session.getInstance(MAIL_PROPERTIES, new Authenticator() {
             @Override
             protected PasswordAuthentication getPasswordAuthentication() {
                 return new PasswordAuthentication(username, password);
@@ -67,8 +77,7 @@ public class MailSender implements EmailService {
 
             Transport.send(message);
         } catch (MessagingException e) {
-            System.err.println("Ошибка отправки email: " + e.getMessage());
-            throw e;
+            throw new MessagingException("Ошибка отправки email: " + e.getMessage());
         }
     }
 
@@ -76,14 +85,14 @@ public class MailSender implements EmailService {
      * Метод для загрузки конфигурационного файла с настройками почтового сервера.
      * <p>
      * Загружает свойства из файла {@code application.properties}, расположенного в ресурсах приложения.
-     * Если файл не найден или возникает ошибка при его чтении, выводится сообщение об ошибке.
+     * Если файл не найден или возникает ошибка при его чтении, выбрасывается {@link IllegalArgumentException}.
      * </p>
      */
     private void loadProperties() {
         try (InputStream inputStream = MailSender.class.getResourceAsStream("/application.properties")) {
             MAIL_PROPERTIES.load(inputStream);
         } catch (IOException e) {
-            System.err.println("Ошибка чтения конфигурационного файла: " + e.getMessage());
+            throw new IllegalArgumentException("Ошибка чтения конфигурационного файла: " + e.getMessage());
         }
     }
 

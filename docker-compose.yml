@@ -11,7 +11,6 @@ services:
       POSTGRES_DB: habittracker
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/sql/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql
     networks:
       - app_network
 

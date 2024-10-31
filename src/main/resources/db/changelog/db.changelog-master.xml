@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <include file="v-1-0-0/001-create-schema.xml" relativeToChangelogFile="true"/>
+    <include file="v-1-0-0/002-create-users-table.xml" relativeToChangelogFile="true"/>
+    <include file="v-1-0-0/003-create-habits-table.xml" relativeToChangelogFile="true"/>
+    <include file="v-1-0-0/004-create-user-sessions-table.xml" relativeToChangelogFile="true"/>
+    <include file="v-1-0-0/005-prepopulate-data.xml" relativeToChangelogFile="true"/>
+</databaseChangeLog>

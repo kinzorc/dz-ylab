@@ -19,11 +19,11 @@ class UserTest {
     @BeforeEach
     @DisplayName("Подготовка: создание нового пользователя")
     void setUp() {
-        user = new User("testUser", "testPass123", "test@example.com", UserRole.USER);
+        user = new User("testUser", "testPass123", "test@example.com");
     }
 
     @Test
-    @DisplayName("Тест: Проверка установки и получения имени пользователя")
+    @DisplayName("Проверка установки и получения имени пользователя")
     void testGetAndSetUserName() {
         assertEquals("testUser", user.getUserName(), "Имя пользователя должно быть 'testUser'");
         user.setUserName("newUserName");
@@ -31,7 +31,7 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Тест: Проверка установки и получения пароля")
+    @DisplayName("Проверка установки и получения пароля")
     void testGetAndSetPassword() {
         assertEquals("testPass123", user.getPassword(), "Пароль должен быть 'testPass123'");
         user.setPassword("newPass123");
@@ -39,7 +39,7 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Тест: Проверка установки и получения email")
+    @DisplayName("Проверка установки и получения email")
     void testGetAndSetEmail() {
         assertEquals("test@example.com", user.getEmail(), "Email должен быть 'test@example.com'");
         user.setEmail("newemail@example.com");
@@ -47,7 +47,7 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Тест: Проверка установки и получения роли пользователя")
+    @DisplayName("Проверка установки и получения роли пользователя")
     void testGetAndSetUserRole() {
         assertEquals(UserRole.USER, user.getUserRole(), "Роль пользователя должна быть 'USER'");
         user.setUserRole(UserRole.ADMIN);
@@ -55,7 +55,7 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Тест: Проверка установки и получения статуса аккаунта")
+    @DisplayName("Проверка установки и получения статуса аккаунта")
     void testGetAndSetUserStatusAccount() {
         assertEquals(UserStatusAccount.ACTIVE, user.getUserStatusAccount(), "Статус должен быть 'ACTIVE'");
         user.setUserStatusAccount(UserStatusAccount.BLOCKED);
@@ -63,25 +63,25 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Тест: Проверка метода equals для пользователей с одинаковым id")
+    @DisplayName("Проверка метода equals для пользователей с одинаковым id")
     void testEquals() {
-        User anotherUser = new User("otherUser", "otherPass", "other@example.com", UserRole.USER);
+        User anotherUser = new User("otherUser", "otherPass", "other@example.com");
         anotherUser.setId(user.getId());
 
         assertEquals(user, anotherUser, "Пользователи с одинаковым id должны быть равны");
     }
 
     @Test
-    @DisplayName("Тест: Проверка метода hashCode")
+    @DisplayName("Проверка метода hashCode")
     void testHashCode() {
-        User anotherUser = new User("otherUser", "otherPass", "other@example.com", UserRole.USER);
+        User anotherUser = new User("otherUser", "otherPass", "other@example.com");
         anotherUser.setId(user.getId());
 
         assertEquals(user.hashCode(), anotherUser.hashCode(), "Хэш-коды пользователей с одинаковым id должны быть равны");
     }
 
     @Test
-    @DisplayName("Тест: Проверка строкового представления объекта пользователя")
+    @DisplayName("Проверка строкового представления объекта пользователя")
     void testToString() {
         String expected = String.format("Пользователь (id - %s): имя - testUser, email - test@example.com, роль - USER, статус аккаунта - ACTIVE", user.getId());
         assertEquals(expected, user.toString(), "Метод toString должен возвращать корректное строковое представление пользователя");

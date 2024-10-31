@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="prepopulate-users" author="kinzorc">
+        <insert tableName="users" schemaName="app_schema">
+            <column name="username" value="admin"/>
+            <column name="password" value="admin"/>
+            <column name="email" value="admin@admin.com"/>
+            <column name="role" value="admin"/>
+            <column name="status" value="active"/>
+        </insert>
+        <insert tableName="users" schemaName="app_schema">
+            <column name="username" value="test"/>
+            <column name="password" value="test"/>
+            <column name="email" value="test@test.com"/>
+            <column name="role" value="user"/>
+            <column name="status" value="active"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="prepopulate-habits" author="kinzorc">
+        <insert tableName="habits" schemaName="app_schema">
+            <column name="user_id" value="2"/>
+            <column name="habit_name" value="run"/>
+            <column name="description" value="test description"/>
+            <column name="frequency" value="daily"/>
+            <column name="created_date" value="2024-10-10"/>
+            <column name="start_date" value="2024-10-11"/>
+            <column name="end_date" value="2024-11-10"/>
+            <column name="execution_period" value="month"/>
+            <column name="status" value="active"/>
+            <column name="streak" value="0"/>
+            <column name="execution_percentage" value="0"/>
+        </insert>
+        <insert tableName="habits" schemaName="app_schema">
+            <column name="user_id" value="2"/>
+            <column name="habit_name" value="ride a bicycle"/>
+            <column name="description" value="test description"/>
+            <column name="frequency" value="weekly"/>
+            <column name="created_date" value="2024-10-11"/>
+            <column name="start_date" value="2024-10-14"/>
+            <column name="end_date" value="2025-11-13"/>
+            <column name="execution_period" value="year"/>
+            <column name="status" value="active"/>
+            <column name="streak" value="0"/>
+            <column name="execution_percentage" value="0"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="prepopulate-habit-executions" author="kinzorc">
+        <insert tableName="habit_executions" schemaName="app_schema">
+            <column name="habit_id" value="1"/>
+            <column name="date" value="2024-10-11"/>
+        </insert>
+        <insert tableName="habit_executions" schemaName="app_schema">
+            <column name="habit_id" value="1"/>
+            <column name="date" value="2024-10-12"/>
+        </insert>
+        <insert tableName="habit_executions" schemaName="app_schema">
+            <column name="habit_id" value="1"/>
+            <column name="date" value="2024-10-14"/>
+        </insert>
+        <insert tableName="habit_executions" schemaName="app_schema">
+            <column name="habit_id" value="2"/>
+            <column name="date" value="2024-10-24"/>
+        </insert>
+        <insert tableName="habit_executions" schemaName="app_schema">
+            <column name="habit_id" value="2"/>
+            <column name="date" value="2024-11-01"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

@@ -1,57 +1,56 @@
 package ru.kinzorc.habittracker.infrastructure.repository.jdbc;
 
-import ru.kinzorc.habittracker.application.dto.UserDTO;
-import ru.kinzorc.habittracker.core.exceptions.UserAlreadyExistsException;
-import ru.kinzorc.habittracker.core.exceptions.UserNotFoundException;
+import ru.kinzorc.habittracker.application.mappers.UserMapper;
+import ru.kinzorc.habittracker.core.entities.User;
 import ru.kinzorc.habittracker.core.repository.UserRepository;
-import ru.kinzorc.habittracker.infrastructure.repository.utils.JdbcConnector;
+import ru.kinzorc.habittracker.infrastructure.repository.queries.UserSQLStatements;
+import ru.kinzorc.habittracker.infrastructure.repository.utils.DatabaseConnector;
 
-import java.sql.*;
-import java.time.LocalDateTime;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Реализация интерфейса {@link UserRepository} для работы с привычками с использованием JDBC.
+ * Реализация интерфейса {@link UserRepository} для управления пользователями в базе данных с использованием JDBC.
  * <p>
- * Этот класс взаимодействует с базой данных PostgreSQL через JDBC и выполняет операции CRUD (создание, чтение, обновление, удаление)
- * для пользователей
+ * Этот класс предоставляет методы для выполнения операций CRUD (создание, чтение, обновление, удаление) и управления
+ * сессиями пользователей. Взаимодействие с базой данных происходит через JDBC, с использованием заранее определённых SQL-запросов.
+ * Также используется объект {@link UserMapper} для преобразования данных между сущностями и DTO.
  * </p>
  */
 public class JdbcUserRepository implements UserRepository {
 
-    private final JdbcConnector jdbcConnector;
+    private final DatabaseConnector databaseConnector;
 
     /**
-     * Конструктор для создания экземпляра репозитория с JDBC.
+     * Конструктор для создания экземпляра репозитория пользователей.
      *
-     * @param jdbcConnector экземпляр класса {@link JdbcConnector} для управления соединениями с базой данных
+     * @param databaseConnector объект {@link DatabaseConnector}, обеспечивающий соединение с базой данных
      */
-    public JdbcUserRepository(JdbcConnector jdbcConnector) {
-        this.jdbcConnector = jdbcConnector;
+    public JdbcUserRepository(DatabaseConnector databaseConnector) {
+        this.databaseConnector = databaseConnector;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void createUser(UserDTO user) throws UserAlreadyExistsException, SQLException {
+    public void save(User user) throws SQLException {
 
-        String query = "INSERT INTO app_schema.users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)";
+        try {
+            Optional<User> findUser = findByUserName(user.getUserName());
+            if (findUser.isPresent())
+                throw new SQLException("Пользователь уже существует!");
+        } catch (SQLException e) {
+            throw new SQLException(e.getMessage());
+        }
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            try {
-                Optional<UserDTO> userDTO = findUserByEmail(user.getEmail());
-                if (userDTO.isPresent())
-                    throw new UserAlreadyExistsException("Пользователь существует!");
-            } catch (UserAlreadyExistsException e) {
-                throw new UserAlreadyExistsException(e.getMessage());
-            } catch (UserNotFoundException e) {
-                String exception = e.getMessage();
-            }
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.CREATE_USER)) {
 
             statement.setString(1, user.getUserName());
             statement.setString(2, user.getPassword());
@@ -60,9 +59,8 @@ public class JdbcUserRepository implements UserRepository {
             statement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
 
             statement.executeUpdate();
-            System.out.println("Пользователь успешно создан.");
         } catch (SQLException e) {
-            throw new SQLException("Ошибка при создании пользователя: " + e.getMessage(), e);
+            throw new SQLException("Ошибка при создании пользователя: " + e.getMessage());
         }
     }
 
@@ -70,34 +68,20 @@ public class JdbcUserRepository implements UserRepository {
      * {@inheritDoc}
      */
     @Override
-    public void updateUser(UserDTO user) throws UserNotFoundException, SQLException {
-        String query = "UPDATE app_schema.users SET username = ?, password = ?, email = ?, role = ?, status = ? WHERE id = ?";
+    public void update(User user) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            Optional<UserDTO> userDTO = findUserByEmail(user.getEmail());
-
-            if (userDTO.isEmpty())
-                throw new UserNotFoundException("Пользователь с ID \" + user.getId() + \" не найден.");
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.UPDATE_USER)) {
 
             statement.setString(1, user.getUserName());
             statement.setString(2, user.getPassword());
             statement.setString(3, user.getEmail());
-            statement.setString(4, user.getUserRole().toString().toLowerCase());
-            statement.setString(5, user.getUserStatusAccount().toString().toLowerCase());
+            statement.setString(4, user.getUserRole().toString());
+            statement.setString(5, user.getUserStatusAccount().toString());
+            statement.setLong(6, user.getId());
 
-            statement.setLong(6, userDTO.get().getId());
+            statement.executeUpdate();
 
-            // Выполняем запрос
-            int rowsUpdated = statement.executeUpdate();
-
-            // Если строка не была обновлена, бросаем исключение
-            if (rowsUpdated == 0) {
-                throw new UserNotFoundException("Пользователь с ID " + user.getId() + " не найден.");
-            }
-
-            System.out.println("Пользователь с ID " + user.getId() + " успешно обновлен.");
         } catch (SQLException e) {
             throw new SQLException("Ошибка при обновлении пользователя с ID " + user.getId() + ": " + e.getMessage());
         }
@@ -107,22 +91,27 @@ public class JdbcUserRepository implements UserRepository {
      * {@inheritDoc}
      */
     @Override
-    public void deleteUser(long userId) throws UserNotFoundException, SQLException {
-        String sql = "DELETE FROM app_schema.users WHERE id = ?";
+    public void deleteAll() throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.DELETE_ALL_USERS)) {
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new SQLException("Ошибка при получении списка пользователей: " + e.getMessage());
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void deleteById(Long userId) throws SQLException {
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.DELETE_USER)) {
 
             statement.setLong(1, userId);
-
-            int rowsDeleted = statement.executeUpdate();
-
-            if (rowsDeleted == 0) {
-                throw new UserNotFoundException("Пользователь по такому ID не найден: " + userId);
-            }
-
-            System.out.println("Пользователь с ID " + userId + " успешно удален.");
-
+            statement.executeUpdate();
         } catch (SQLException e) {
             throw new SQLException("Ошибка при удалении пользователя с ID " + userId + ": " + e.getMessage());
         }
@@ -132,17 +121,17 @@ public class JdbcUserRepository implements UserRepository {
      * {@inheritDoc}
      */
     @Override
-    public List<UserDTO> findAllUsers() throws SQLException {
-        String query = "SELECT * FROM app_schema.users";
-        List<UserDTO> users = new ArrayList<>();
+    public List<User> findAll() throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query);
+        List<User> users = new ArrayList<>();
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.FIND_ALL_USERS);
              ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
-                UserDTO userDTO = new UserDTO(resultSet);
-                users.add(userDTO);
+                User user = UserMapper.INSTANCE.toEntity(UserMapper.INSTANCE.fromResultSetToDTO(resultSet));
+                users.add(user);
             }
 
         } catch (SQLException e) {
@@ -156,127 +145,73 @@ public class JdbcUserRepository implements UserRepository {
      * {@inheritDoc}
      */
     @Override
-    public Optional<UserDTO> findUserById(long userId) throws UserNotFoundException, SQLException {
-        String query = "SELECT * FROM app_schema.users WHERE id = ?";
-        UserDTO userDTO;
+    public Optional<User> findById(Long userId) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        User user = null;
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.FIND_USER_BY_ID)) {
+
             statement.setObject(1, userId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next())
-                    throw new UserNotFoundException("Пользователь по такому ID не найден: " + userId);
-
-                userDTO = new UserDTO(resultSet);
+                if (resultSet.next()) {
+                    user = UserMapper.INSTANCE.toEntity(UserMapper.INSTANCE.fromResultSetToDTO(resultSet));
+                }
             }
         } catch (SQLException e) {
             throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
         }
 
-        return Optional.of(userDTO);
+        return Optional.ofNullable(user);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public Optional<UserDTO> findUserByUserName(String userName) throws UserNotFoundException, SQLException {
-        String query = "SELECT * FROM app_schema.users WHERE username = ?";
-        UserDTO userDTO;
+    public Optional<User> findByUserName(String userName) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        User user = null;
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.FIND_USER_BY_USERNAME)) {
+
             statement.setObject(1, userName);
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next())
-                    throw new UserNotFoundException("Пользователь с именем " + userName + " не найден");
-
-                userDTO = new UserDTO(resultSet);
+                if (resultSet.next()) {
+                    user = UserMapper.INSTANCE.toEntity(UserMapper.INSTANCE.fromResultSetToDTO(resultSet));
+                }
             }
         } catch (SQLException e) {
             throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
         }
 
-        return Optional.of(userDTO);
+        return Optional.ofNullable(user);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public Optional<UserDTO> findUserByEmail(String userEmail) throws UserNotFoundException, SQLException {
-        String query = "SELECT * FROM app_schema.users WHERE email = ?";
-        UserDTO userDTO;
+    public Optional<User> findByEmail(String userEmail) throws SQLException {
 
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        User user;
+
+        try (Connection connection = databaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UserSQLStatements.FIND_USER_BY_EMAIL)) {
+
             statement.setObject(1, userEmail);
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next())
-                    throw new UserNotFoundException("Пользователь с таким email не найден: " + userEmail);
-
-                userDTO = new UserDTO(resultSet);
+                resultSet.next();
+                user = UserMapper.INSTANCE.toEntity(UserMapper.INSTANCE.fromResultSetToDTO(resultSet));
             }
         } catch (SQLException e) {
             throw new SQLException("Ошибка при запросе к базе данных: " + e.getMessage());
         }
 
-        return Optional.of(userDTO);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addSession(long userId) throws SQLException {
-        String query = "INSERT INTO service_schema.users_sessions (user_id, login_time) VALUES (?, ?)";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, userId);
-            statement.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            throw new SQLException("Ошибка при добавлении сессии пользователя: " + e.getMessage());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeSession(long userId) throws SQLException {
-        String query = "DELETE FROM service_schema.users_sessions WHERE user_id = ?";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setLong(1, userId);
-
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            throw new SQLException("Ошибка при удалении сессии пользователя: " + e.getMessage());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeAllSessions() throws SQLException {
-        String query = "DELETE FROM service_schema.users_sessions";
-
-        try (Connection connection = jdbcConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            throw new SQLException("Ошибка при удалении всех сессий пользователей: " + e.getMessage());
-        }
+        return Optional.of(user);
     }
 }

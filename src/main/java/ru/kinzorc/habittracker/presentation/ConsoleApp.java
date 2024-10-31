@@ -1,15 +1,11 @@
 package ru.kinzorc.habittracker.presentation;
 
-import ru.kinzorc.habittracker.application.service.ApplicationService;
-import ru.kinzorc.habittracker.core.repository.HabitRepository;
-import ru.kinzorc.habittracker.core.repository.UserRepository;
-import ru.kinzorc.habittracker.infrastructure.repository.jdbc.JdbcHabitRepository;
-import ru.kinzorc.habittracker.infrastructure.repository.jdbc.JdbcUserRepository;
-import ru.kinzorc.habittracker.infrastructure.repository.utils.JdbcConnector;
-import ru.kinzorc.habittracker.presentation.menu.MenuNavigator;
-import ru.kinzorc.habittracker.presentation.utils.MenuUtils;
+import liquibase.exception.LiquibaseException;
+import ru.kinzorc.habittracker.infrastructure.factory.AppConsoleFactory;
 
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Класс представляет точку входа в консольное приложение Habit Tracker.
@@ -37,38 +33,16 @@ public class ConsoleApp {
      */
     public static void main(String[] args) {
 
-        // Инициализация необходимых компонентов приложения
-        JdbcConnector jdbcConnector = new JdbcConnector();
-        UserRepository userRepository = new JdbcUserRepository(jdbcConnector);
-        HabitRepository habitRepository = new JdbcHabitRepository(jdbcConnector);
-        ApplicationService applicationService = new ApplicationService(userRepository, habitRepository);
-        MenuUtils menuUtils = new MenuUtils();
+        AppConsoleFactory appConsoleFactory;
 
-        // Запуск основного меню
-        MenuNavigator.MAIN_MENU.showMenu(applicationService, menuUtils);
+        try {
+            appConsoleFactory = new AppConsoleFactory();
+            appConsoleFactory.getLiquibaseMigration().startMigration();
+        } catch (IOException | LiquibaseException | SQLException e) {
+            System.err.println("При запуске приложения произошла ошибка! " + e.getMessage());
+            System.exit(1);
+        }
 
-        // Добавление shutdown hook для корректного завершения работы приложения
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Завершение работы приложения. Выполняется удаление сессий (таймаут 5 секунд).");
 
-            // Создание потока для выполнения задачи удаления сессий с таймаутом
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            // Удаление всех активных сессий пользователей
-            Future<?> future = executor.submit(applicationService::removeAllSessions);
-
-            try {
-                // Ждем завершения задачи с таймаутом в 5 секунд
-                future.get(5, TimeUnit.SECONDS);
-                System.out.println("Все сессии успешно удалены.");
-            } catch (TimeoutException e) {
-                System.err.println("Время на удаление сессий истекло. Задача прервана.");
-                future.cancel(true);
-            } catch (ExecutionException | InterruptedException e) {
-                System.err.println("Ошибка при удалении сессий: " + e.getMessage());
-            } finally {
-                // Завершаем выполнение потока
-                executor.shutdownNow();
-            }
-        }));
     }
 }
